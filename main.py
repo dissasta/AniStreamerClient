@@ -4,12 +4,25 @@ from PyQt5 import QtGui
 from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QLabel
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt, QTimer, QSize
+from config import Config
 import ctypes
 
-server = '129.228.74.105'
-port = '666'
+class Shared(object):
+    def __init__(self):
+        pass
 
-class DropZone(QWidget):
+    def dragEnterEvent(self, e):
+        if e.mimeData().hasUrls():
+            e.accept()
+        else:
+            e.ignore()
+
+    def dropEvent(self, e):
+        files = [u.toLocalFile() for u in e.mimeData().urls()]
+        for f in files:
+            print(os.path.isdir(f))
+
+class DropZone(QWidget, Shared):
     def __init__(self):
         QWidget.__init__(self)
         self.fadeOffTime = 30
@@ -57,7 +70,7 @@ class DropZone(QWidget):
         e.ignore()
         self.hide()
 
-class App(QMainWindow):
+class App(QMainWindow, Shared):
     def __init__(self):
         super().__init__()
 
@@ -70,18 +83,20 @@ class App(QMainWindow):
         self.initBAR()
         self.initIcon()
         self.initDropZone()
+        self.initConfigMenu()
         self.makeConnection()
+        self.show()
 
     def initUI(self):
         self.setWindowTitle(self.title)
         self.setGeometry(self.left, self.top, self.width, self.height)
+        self.setFixedSize(self.width, self.height)
         self.setAutoFillBackground(True)
         p = self.palette()
         p.setColor(self.backgroundRole(), Qt.gray)
         self.setPalette(p)
         self.setAcceptDrops(True)
         self.setWindowIcon(QtGui.QIcon('icon.png'))
-        self.show()
 
     def initBAR(self):
         bar = self.menuBar()
@@ -89,6 +104,9 @@ class App(QMainWindow):
         connectAction = QtWidgets.QAction('Connect', self)
         fileMenu.addAction(connectAction)
         connectAction.triggered.connect(self.makeConnection)
+        configAction = QtWidgets.QAction('Config', self)
+        fileMenu.addAction(configAction)
+        configAction.triggered.connect(lambda: self.configMenu.show())
         exitAction = QtWidgets.QAction('Exit', self)
         fileMenu.addAction(exitAction)
         exitAction.triggered.connect(self.exit)
@@ -104,6 +122,9 @@ class App(QMainWindow):
         self.sysTray.activated.connect(self.onTrayIconActivated)
         self.sysTray.show()
         self.sysTray.setVisible(False)
+
+    def initConfigMenu(self):
+        self.configMenu = Config()
 
     def initDropZone(self):
         self.dropZone = DropZone()
@@ -122,6 +143,7 @@ class App(QMainWindow):
 
     def mainPopUp(self):
         self.show()
+        self.configMenu.show()
         self.dropZone.counter = 0
         self.sysTray.setVisible(False)
 
@@ -130,21 +152,21 @@ class App(QMainWindow):
         self.dropZone.show()
         self.dropZone.hideSelf()
 
-    def dragEnterEvent(self, e):
-        if e.mimeData().hasUrls():
-            e.accept()
-        else:
-            e.ignore()
-
-    def dropEvent(self, e):
-        files = [u.toLocalFile() for u in e.mimeData().urls()]
-        for f in files:
-            print(os.path.isdir(f))
+    def moveEvent(self, e):
+        diff = e.pos() - e.oldPos()
+        geo = self.configMenu.geometry()
+        geo.moveTopLeft(geo.topLeft() + diff)
+        self.configMenu.setGeometry(geo)
 
     def closeEvent(self, e):
         e.ignore()
         self.hide()
+        self.configMenu.hide()
         self.sysTray.setVisible(True)
+
+    def hideEvent(self, e):
+        e.ignore()
+        self.configMenu.hide()
 
     def exit(self):
         sys.exit()
