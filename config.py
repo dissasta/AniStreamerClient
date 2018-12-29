@@ -1,28 +1,39 @@
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QMainWindow
+from PyQt5.QtWidgets import QMainWindow, QLabel
 from PyQt5 import QtGui
+import os
 
 class Config(QMainWindow):
-    def __init__(self):
+    tempDir = 'e:/tools/TEMP'
+    def __init__(self, mainApp):
         super().__init__()
         self.title = 'Config'
-        self.left = 1000
-        self.top = 300
+        self.left = mainApp.geometry().left() + 20
+        self.top = mainApp.geometry().top() + 20
         self.width = 300
         self.height = 500
         self.userName = None
         self.serverIP = '129.228.74.105'
         self.serverPort = '666'
+        self.incomingDir = ''
         self.initUI()
 
     def initUI(self):
         self.setWindowTitle(self.title)
         self.setGeometry(self.left, self.top, self.width, self.height)
         self.setFixedSize(self.width, self.height)
-        self.setWindowFlags(Qt.Tool)
+        #self.setWindowFlags(Qt.Tool)
 
         self.setAutoFillBackground(True)
         p = self.palette()
-        p.setColor(self.backgroundRole(), Qt.gray)
+        p.setColor(self.backgroundRole(), QtGui.QColor(60, 63, 65))
         self.setPalette(p)
+        logo = QLabel(self)
+        pixmap = QtGui.QPixmap('logo.png')
+        logo.setPixmap(pixmap)
+        logo.setGeometry(24, 16, 255,63)
+
         self.setWindowIcon(QtGui.QIcon('icon.png'))
+
+    def showEvent(self, e):
+        e.ignore
