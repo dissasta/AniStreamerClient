@@ -1,7 +1,7 @@
 import sys
 import os
 from PyQt5 import QtGui
-from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QLabel, QPushButton, QTreeWidget
+from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QLabel, QPushButton, QTreeWidget, QCheckBox
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt, QTimer, QSize
 from config import Config
@@ -23,13 +23,13 @@ class JobHandlerWidget(QWidget):
         self.top = 400
         self.width = 1200
         self.height = 800
-        self.setFixedSize(self.width, self.height)
-        self.setWindowFlags(Qt.WindowStaysOnTopHint)
+        #self.setWindowFlags(Qt.WindowStaysOnTopHint)
         self.initUI()
 
     def initUI(self):
         self.setWindowTitle(self.title)
         self.setGeometry(self.left, self.top, self.width, self.height)
+        self.setMaximumSize(self.width, self.height)
         self.tree = QTreeWidget(self)
         self.tree.setAlternatingRowColors(True)
         self.tree.setSortingEnabled(True)
@@ -37,12 +37,15 @@ class JobHandlerWidget(QWidget):
         self.tree.setStyleSheet("QHeaderView::section{background-color: rgb(50, 50, 50); color: grey;}")
         self.tree.setStyleSheet("color: grey; background-color: rgb(60, 63, 65); alternate-background-color: rgb(66, 67, 69)")
         self.tree.setColumnCount(3)
-        self.tree.setHeaderLabels(["Path", "IN Filename", "Type", "Alpha", "Gaps", "Resolution", "Duration", "Status", "OUT Filename", "OUT Format", "Ingest"])
+        self.tree.setHeaderLabels(["Path", "IN Filename", "Type", "Alpha", "Gaps", "Resolution", "Duration", "Status", "Ingest", "Format", "OUT Filename"])
         self.tree.setColumnWidth(0, 300)
         self.tree.setColumnWidth(1, 150)
-        for column in range(2,8):
-            self.tree.setColumnWidth(column, 70)
-        self.setWindowIcon(QtGui.QIcon('icon.png'))
+        for column in range(2,7):
+            self.tree.setColumnWidth(column, 68)
+        self.tree.setColumnWidth(7, 78)
+        self.tree.setColumnWidth(8, 40)
+        self.tree.setColumnWidth(9, 130)
+        self.setWindowIcon(QtGui.QIcon('import.png'))
         self.show()
 
     def scanJobs(self, assets):
@@ -52,30 +55,77 @@ class JobHandlerWidget(QWidget):
         self.jobScannerThread.start()
 
     def createEntry(self, o):
-        newEntry = QTreeWidgetItem([o.path, "", o.type, ""])
-        self.tree.addTopLevelItem(newEntry)
-        self.tree.expandItem(newEntry)
-        #self.tree.topLevelItem(self.tree.topLevelItemCount()-1).setExpanded(True)
+        if self.jobScannerThread.allArchives:
+            for archive in self.jobScannerThread.allArchives:
+                if archive.tempFolderName in o.path:
+                    tempPath = os.path.join(Config.tempDir, archive.tempFolderName)
+                    tempPath = tempPath.replace('/', '\\')
+                    displayPath = o.path.replace(tempPath, "")
+                    if not displayPath:
+                        displayPath = '\\'
+                    newEntry = QTreeWidgetItem([displayPath, "", o.type])
+                    archive.widgetItem.addChild(newEntry)
+                    break
+                else:
+                    alreadyIn = False
+                    for archive in self.jobScannerThread.allArchives:
+                        if archive.tempFolderName in o.path:
+                            alreadyIn = True
+                            break
+                    if not alreadyIn:
+                        newEntry = QTreeWidgetItem([o.path, "", o.type])
+                        self.tree.addTopLevelItem(newEntry)
+                        break
+        else:
+            newEntry = QTreeWidgetItem([o.path, "", o.type])
+            self.tree.addTopLevelItem(newEntry)
+            if not o.type == "" and not o.type == "Archive":
+                print('hre')
+                o.widgetItem = newEntry
+                ingestCheckbox = QCheckBox()
+                ingestCheckbox.setMaximumSize(14, 14)
+                o.ingest = ingestCheckbox
+                self.tree.setItemWidget(o.widgetItem, 8, ingestCheckbox)
+
         o.widgetItem = newEntry
         o.widgetRow = self.tree.topLevelItemCount() - 1
         if o.type == '':
             for job in o.jobs:
                 if job.type == 'Still':
-                    folderChild = QTreeWidgetItem(['', job.basename, job.type, ''])
+                    folderChild = QTreeWidgetItem(["", job.basename, job.type])
                     o.widgetItem.addChild(folderChild)
                     job.widgetItem = folderChild
-                    #job.parentRow = o.widgetRow
-                    #job.widgetRow = o.widgetItem.childCount()
 
                 if job.type == 'Sequence':
-                    folderChild = QTreeWidgetItem(['', job.matrix, job.type, ''])
+                    folderChild = QTreeWidgetItem(["", job.matrix, job.type])
                     o.widgetItem.addChild(folderChild)
                     job.widgetItem = folderChild
-                    #job.parentRow = o.widgetRow
-                    #job.widgetRow = o.widgetItem.childCount()
+
+                if job.type == 'Video':
+                    folderChild = QTreeWidgetItem(["", job.basename, job.type])
+                    o.widgetItem.addChild(folderChild)
+                    job.widgetItem = folderChild
+
+                ingestCheckbox = QCheckBox()
+                ingestCheckbox.setMaximumSize(14, 14)
+                ingestCheckbox.toggled.connect(lambda: self.btnstate(ingestCheckbox))
+                ingestCheckbox.hide()
+                job.ingest = ingestCheckbox
+                self.tree.setItemWidget(job.widgetItem, 8, ingestCheckbox)
+
+        self.tree.expandAll()
+        self.tree.sortByColumn(0, 0)
+        self.tree.sortByColumn(2, 0)
 
     def updateEntry(self, job, column, text):
         job.widgetItem.setText(column, text)
+
+    def btnstate(self, checkbox):
+        print(checkbox.isChecked())
+
+    def closeEvent(self, e):
+        e.ignore()
+        self.destroy()
 
 class DropZone(QWidget):
     def __init__(self, mainApp):
@@ -148,8 +198,8 @@ class Client(QMainWindow):
         self.title = 'ANI-STREAMER CLIENT v0.1'
         self.left = 200
         self.top = 300
-        self.width = 800
-        self.height = 500
+        self.width = 1200
+        self.height = 800
         self.connected = False
         self.socket = None
         self.jobHandlerWidgets = []

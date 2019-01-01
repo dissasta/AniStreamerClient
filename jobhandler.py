@@ -3,9 +3,10 @@ from config import *
 from string import ascii_uppercase, digits
 from PyQt5 import QtCore
 from PyQt5.QtWidgets import QTreeWidget, QTreeWidgetItem, QApplication, QWidget
+import threading
 
 encodeAssetTypes = ['.mov', '.tga', '.png']
-videoAssetTypes = ['.ani', '.mov', '.mpeg', '.mpg', '.mkv', '.avi']
+videoAssetTypes = ['.ani', '.mov', '.mpeg', '.mpg', '.mkv', '.avi', '.mp4', '.wmv']
 archiveAssetTypes = ['.zip', '.rar', '.7z']
 alphaTags = ['rgba', 'brga', 'bgra']
 
@@ -17,23 +18,65 @@ class Asset(object):
         self.type = ''
         self.alpha = False
         self.resolution = None
+        self.ingest = False
         if os.path.isfile(path):
             self.ext = os.path.basename(path).split('.')[-1]
         self.valid = False
+
+    def genOutFilename(self):
+        if self.type == 'Sequence':
+            parentFolder = self.basename
+            filename = self.matrix
+            outputFile = filename.split('.')[0][:filename.index('%')].rstrip('_')
+        else:
+            parentFolder = os.path.dirname(self.path).split('\\')[-1].lower()
+            filename = self.basename
+            outputFile = filename.split('.')[0]
+        string = 'x'
+
+        if parentFolder == 'in' and ('_in' not in filename and ' in' not in filename):
+            outputFile = outputFile + '_in'
+
+        elif parentFolder == 'in' and ('_in' in filename or ' in' in filename):
+            outputFile = outputFile
+
+        elif parentFolder == 'out' and ('_out' not in filename and ' out' not in filename):
+            outputFile = outputFile + '_out'
+
+        elif parentFolder == 'out' and ('_out' in filename or ' out' in filename):
+            outputFile = outputFile + aniExt
+
+        else:
+            if ('_in' in parentFolder or ' in' in parentFolder) and ('in' not in filename and '_in' not in filename):
+                outputFile = outputFile + '_in'
+
+            elif ('_in' in parentFolder or ' in' in parentFolder) and (' in' in filename or '_in' in filename):
+                outputFile = outputFile
+
+            elif ('_out' in parentFolder or ' out' in parentFolder) and (
+                    ' out' not in filename and '_out' not in filename):
+                outputFile = outputFile + '_out'
+
+            elif ('_out' in parentFolder or ' out' in parentFolder) and (' out' in filename or '_out' in filename):
+                outputFile = outputFile
+
+        return outputFile
 
 class Video(Asset):
     def __init__(self, path):
         Asset.__init__(self, path)
         self.type = 'Video'
         self.toMov = False
-        self.ingest = False
         self.uncompress = False
+        self.ffmpegTags = ['matroska', 'webm', 'qtrle', 'prores']
+        self.outFilename = self.genOutFilename()
 
 class Folder(Asset):
     def __init__(self, path):
         Asset.__init__(self, path)
         self.ext = ''
         self.content = []
+        self.videos = []
         self.prefixesFound = []
         self.jobs = []
 
@@ -44,46 +87,55 @@ class Sequence(Asset):
         self.content = content
         self.matrix = matrix
         self.toMov = False
-        self.ingest = False
         self.validFormat = False
         self.gaps = gaps
         if 'tga' in matrix.lower():
             self.ffmpegName = 'targa'
         elif 'png' in matrix.lower():
             self.ffmpegName = 'png'
+        self.outFilename = self.genOutFilename()
 
 class Still(Asset):
     def __init__(self, path):
         Asset.__init__(self, path)
         self.type = 'Still'
         self.toAni = False
-        self.ingest = False
         self.validFormat = False
         if 'tga' in self.basename.lower():
             self.ffmpegName = 'targa'
         elif 'png' in self.basename.lower():
             self.ffmpegName = 'png'
+        self.outFilename = self.genOutFilename()
 
 class Archive(Asset):
     def __init__(self, path):
         Asset.__init__(self, path)
         self.tempFolderName = self.generateTempArchiveFolder()
+        self.fileCount = 0
+        self.counter = 0
         self.unpacked = False
         self.type = 'Archive'
 
     def generateTempArchiveFolder(self):
         return ''.join(random.choices(ascii_uppercase + digits, k=8))
 
-    def unpack(self, tempFolder):
+    def unzipCounterUpdate(self, signal):
+        percentage = int(100 / (self.fileCount / self.counter))
+        signal.emit(self, 7, str(percentage) + '%')
+
+    def unpack(self, tempFolder, signal):
         if self.ext.lower() == 'zip':
             try:
                 with zipfile.ZipFile(self.path, 'r') as zip:
+                    self.fileCount = len(zip.infolist())
                     for file in zip.namelist():
                         zip.extract(file, tempFolder)
-                        self.unpacked = True
-                        self.status = "Unpacking successful"
-                # with zip.open('eggs.txt') as myfile:
-                #   print(myfile.read())
+                        self.counter += 1
+                        self.unzipCounterUpdate(signal)
+                    self.unpacked = True
+                    self.status = "Unpacking successful"
+                    signal.emit(self, 7, 'UNZIPPED')
+
             except Exception:
                 print('Bad Zip File')
                 self.status = "Unpacking failed"
@@ -95,54 +147,70 @@ class JobScanner(QtCore.QThread):
     def __init__(self, assets):
         QtCore.QThread.__init__(self)
         self.assets = assets
-        self.stills = []
         self.sequences = []
         self.newArchives = []
+        self.newStills = []
+        self.newVideos = []
+        self.newFolders = []
         self.allArchives = []
-        self.videos = []
-        self.folders = []
+        self.allVideos = []
+        self.allStills = []
+        self.allFolders = []
         self.tempArchiveFolders = []
 
     def run(self):
         self.createTempFolder()
-        self.scanStructure(self.assets)
-        self.scanFolderForSequences()
-        self.handleStills()
-        self.handleVideos()
-        self.scanAssets()
-        #self.createJobs()
+        while True:
+            while self.assets:
+                for i in range(len(self.assets)):
+                    asset = self.assets.pop()
+                    self.scanStructure(asset)
+                while self.newFolders:
+                    folder = self.newFolders.pop(0)
+                    self.scanFolderForAssets(folder)
+                    self.allFolders.append(folder)
+                self.handleStills()
+                self.handleVideos()
+                self.handleArchives()
+
+            for folder in self.allFolders:
+                self.scanAssets(folder.jobs)
+            self.scanAssets(self.allStills)
+            self.scanAssets(self.allVideos)
+            #self.createJobs()
+            break
+
 
     def createTempFolder(self):
         if not os.path.exists(Config.tempDir):
             os.mkdir(Config.tempDir)
 
-    def scanStructure(self, assets):
+    def scanStructure(self, asset):
         #scan individual folders internal structure and extract separate folder paths
-        for asset in assets:
-            if os.path.isdir(asset):
-                 walked = [[root, files] for root, folder, files in os.walk(asset)]
-                 for entry in walked:
-                     entry[0] = entry[0].replace('/', '\\')
-                     self.folders.append(Folder(entry[0]))
-                     # scan again for rogue video and archive files
-                     for file in entry[1]:
-                        if any(x in file.lower() for x in archiveAssetTypes):
-                            self.newArchives.append(Archive(os.path.join(entry[0], file)))
-                        if any(x in file.lower() for x in videoAssetTypes):
-                            self.videos.append(Video(os.path.join(entry[0], file)))
+        if os.path.isdir(asset):
+            walked = [[root, files] for root, folder, files in os.walk(asset)]
+            for entry in walked:
+                entry[0] = entry[0].replace('/', '\\')
+                self.newFolders.append(Folder(entry[0]))
+                # scan again for rogue video and archive files
+                for file in entry[1]:
+                    if any(file.lower().endswith(x) for x in archiveAssetTypes):
+                        self.newArchives.append(Archive(os.path.join(entry[0], file)))
+                    #if any(file.lower().endswith(x) for x in videoAssetTypes):
+                    #    self.newVideos.append(Video(os.path.join(entry[0], file)))
 
-            #scan individual files for import
-            elif os.path.isfile(asset):
-                asset = asset.replace('/', '\\')
-                if any(x in asset.lower() for x in videoAssetTypes):
-                    self.videos.append(Video(asset))
-                elif any(x in asset.lower() for x in encodeAssetTypes[1:]):
-                    self.stills.append(Still(asset))
-                elif any(x in asset.lower() for x in archiveAssetTypes):
-                    self.newArchives.append(Archive(asset))
+        #scan individual files for import
+        elif os.path.isfile(asset):
+            asset = asset.replace('/', '\\')
+            if any(asset.lower().endswith(x) for x in videoAssetTypes):
+                self.newVideos.append(Video(asset))
+            elif any(asset.lower().endswith(x) for x in encodeAssetTypes[1:]):
+                self.newStills.append(Still(asset))
+            elif any(asset.lower().endswith(x) for x in archiveAssetTypes):
+                self.newArchives.append(Archive(asset))
 
-        self.tempArchiveFolders = []
-        self.handleArchives()
+        #self.tempArchiveFolders = []
+        #self.handleArchives()
 
     def handleArchives(self):
         #extract archives to TEMP folder
@@ -150,25 +218,30 @@ class JobScanner(QtCore.QThread):
             archive = self.newArchives.pop(0)
             tempFolder = os.path.join(Config.tempDir, archive.tempFolderName)
             os.mkdir(tempFolder)
-            archive.unpack(tempFolder)
+            self.new_signal.emit(archive)
+            archive.unpack(tempFolder, self.new_signal2)
 
         #move each archive object from newArchives into allArchives
             self.allArchives.append(archive)
 
         #add new temporary folders to a list for further scanning
-            self.tempArchiveFolders.append(tempFolder)
+            self.assets.append(tempFolder)
 
         #scan the structure again of any of the newly created temporary archive folders
-        if self.tempArchiveFolders:
-            self.scanStructure(self.tempArchiveFolders)
+        '''if self.tempArchiveFolders:
+            self.scanStructure(self.tempArchiveFolders)'''
 
     def handleStills(self):
-        for still in self.stills:
+        while self.newStills:
+            still = self.newStills.pop(0)
             self.new_signal.emit(still)
+            self.allStills.append(still)
 
     def handleVideos(self):
-        for video in self.videos:
+        while self.newVideos:
+            video = self.newVideos.pop(0)
             self.new_signal.emit(video)
+            self.allVideos.append(video)
 
     def getDuration(self, job):
         if job.type == 'Sequence':
@@ -180,132 +253,179 @@ class JobScanner(QtCore.QThread):
             string = '%02d:%02d:%02d.%02d' % (hh, mm, ss, ff)
             return(str(string))
 
-    def scanAssets(self):
-        for folder in self.folders:
-            for job in folder.jobs:
-                if job.type == 'Sequence':
-                    if job.gaps:
-                        self.new_signal2.emit(job, 4, 'YES')
-                    else:
-                        self.new_signal2.emit(job, 4, 'NO')
+    def scanAssets(self, items):
+        #print("scanning")
+        for job in items:
+            self.new_signal2.emit(job, 10, job.outFilename)
+            if job.type == 'Sequence':
+                if job.gaps:
+                    self.new_signal2.emit(job, 4, 'YES')
+                else:
+                    self.new_signal2.emit(job, 4, 'NO')
 
-                    self.new_signal2.emit(job, 6, self.getDuration(job))
+                self.new_signal2.emit(job, 6, self.getDuration(job))
 
-                    counter = 0
-                    for i in job.content:
-                        file = os.path.join(job.path, i)
-                        metadata = subprocess.Popen('ffmpeg -i %s -hide_banner' %(file), shell=True, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-                        out, err = metadata.communicate()
-
-                        if not job.resolution:
-                            job.resolution = re.findall('\d+x\d+', err.decode('ascii'))[0]
-                            self.new_signal2.emit(job, 5, job.resolution)
-
-                        alpha = any(x in err.decode('ascii') for x in alphaTags)
-                        if not alpha:
-                            job.alpha = False
-                            break
-                        else:
-                            job.alpha = True
-
-                        correctFormat = ("Video: %s" % job.ffmpegName) in err.decode('ascii')
-                        if not correctFormat:
-                            job.validFormat = False
-                            break
-                        else:
-                            job.validFormat = True
-
-                        counter += 1
-                        percentage = int(100/(len(job.content)/counter))
-                        self.new_signal2.emit(job, 3, str(percentage) + '%')
-                        self.new_signal2.emit(job, 7, 'SCANNING')
-
-                    if job.alpha:
-                        self.new_signal2.emit(job, 7, 'DONE')
-                        self.new_signal2.emit(job, 3, 'PRESENT')
-                        if job.validFormat:
-                            self.new_signal2.emit(job, 7, 'VALID')
-                            job.valid = True
-                            if job.gaps:
-                                job.valid = False
-                                self.new_signal2.emit(job, 7, 'INVALID')
-                        else:
-                            self.new_signal2.emit(job, 7, 'INVALID FILE FORMAT')
-
-                    else:
-                        self.new_signal2.emit(job, 3, 'MISSING')
-                        self.new_signal2.emit(job, 7, 'INVALID')
-
-                elif job.type == 'Still':
-                    file = job.path
-                    metadata = subprocess.Popen('ffmpeg -i %s -hide_banner' % (file), shell=True, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+                counter = 0
+                for i in job.content:
+                    file = os.path.join(job.path, i)
+                    metadata = subprocess.Popen('ffmpeg -i "%s" -hide_banner' %(file), shell=True, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
                     out, err = metadata.communicate()
-                    alpha = any(x in err.decode('ascii') for x in alphaTags)
+                    err = err.decode('utf-8')
 
                     if not job.resolution:
-                        job.resolution = re.findall('\d+x\d+', err.decode('ascii'))[0]
+                        job.resolution = re.findall('\d+x\d+', err)[0]
                         self.new_signal2.emit(job, 5, job.resolution)
 
+                    alpha = any(x in err for x in alphaTags)
                     if not alpha:
                         job.alpha = False
                         break
                     else:
                         job.alpha = True
 
-                    correctFormat = ("Video: %s" % job.ffmpegName) in err.decode('ascii')
+                    correctFormat = (("Video: %s" % job.ffmpegName) in err)
                     if not correctFormat:
                         job.validFormat = False
                         break
                     else:
                         job.validFormat = True
 
-                    if job.alpha:
-                        self.new_signal2.emit(job, 7, 'DONE')
-                        self.new_signal2.emit(job, 3, 'PRESENT')
-                        if job.validFormat:
-                            self.new_signal2.emit(job, 7, 'VALID')
-                            job.valid = True
-                        else:
-                            self.new_signal2.emit(job, 7, 'INVALID FILE FORMAT')
+                    counter += 1
+                    percentage = int(100/(len(job.content)/counter))
+                    self.new_signal2.emit(job, 3, str(percentage) + '%')
+                    self.new_signal2.emit(job, 7, 'SCANNING')
+
+                if job.alpha:
+                    self.new_signal2.emit(job, 7, 'DONE')
+                    self.new_signal2.emit(job, 3, 'PRESENT')
+                    if job.validFormat:
+                        self.new_signal2.emit(job, 7, 'VALID')
+                        job.valid = True
+                        if job.gaps:
+                            job.valid = False
+                            self.new_signal2.emit(job, 7, 'INVALID')
                     else:
-                        self.new_signal2.emit(job, 3, 'MISSING')
-                        self.new_signal2.emit(job, 7, 'NO ALPHA')
-
-    def scanFolderForSequences(self):
-        for folder in self.folders:
-            folder.content = [x for x in os.listdir(folder.path) if (x.lower().endswith('.tga') or x.lower().endswith('.png'))]
-
-            #check folder's internal structure for individual image prefixes
-            for file in folder.content:
-                numbers = re.findall('\d+', file)
-                if numbers:
-                    numSuffix = numbers[-1]
-                    numSuffixIdx = file.rfind(numSuffix)
-                    file = file[:numSuffixIdx] + str(len(numSuffix)) + file[numSuffixIdx + len(numSuffix):]
-                    folder.prefixesFound.append((file, numSuffixIdx))
-
-            folder.prefixesFound = set(folder.prefixesFound)
-
-            #check each of the prefixes for sequence
-            for prefix in folder.prefixesFound:
-                matrix = prefix[0][:prefix[1]]
-                list = [file for file in folder.content if file.startswith(matrix)]
-                newMatrix = (matrix + '%d0' + prefix[0][prefix[1]:])
-                gaps = False
-                if len(list) >= 2:
-                    for i in range(1, len(list)):
-                        if int(re.findall('\d+', list[i])[-1]) - int(re.findall('\d+', list[i-1])[-1]) != 1:
-                            gaps = True
-                            break
-                        else:
-                            continue
-
-                    folder.jobs.append(Sequence(folder.path, list, newMatrix, gaps))
+                        self.new_signal2.emit(job, 7, 'INVALID FILE FORMAT')
 
                 else:
-                    folder.jobs.append(Still(os.path.join(folder.path, list[0])))
+                    self.new_signal2.emit(job, 3, 'MISSING')
+                    self.new_signal2.emit(job, 7, 'INVALID')
 
-            self.new_signal.emit(folder)
+            elif job.type == 'Still':
+                file = job.path
+                metadata = subprocess.Popen('ffmpeg -i "%s" -hide_banner' % (file), shell=True, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+                out, err = metadata.communicate()
+                err = err.decode('utf-8')
+                alpha = any(x in err for x in alphaTags)
+                job.resolution = re.findall('\d+x\d+', err)[0]
+                self.new_signal2.emit(job, 5, job.resolution)
+
+                if not alpha:
+                    job.alpha = False
+                else:
+                    job.alpha = True
+
+                correctFormat = ("Video: %s" % job.ffmpegName) in err
+                if not correctFormat:
+                    job.validFormat = False
+                else:
+                    job.validFormat = True
+
+                self.new_signal2.emit(job, 4, '-')
+                self.new_signal2.emit(job, 6, '-')
+
+                if job.alpha:
+                    self.new_signal2.emit(job, 7, 'DONE')
+                    self.new_signal2.emit(job, 3, 'PRESENT')
+                    if job.validFormat:
+                        self.new_signal2.emit(job, 7, 'VALID')
+                        job.valid = True
+                    else:
+                        self.new_signal2.emit(job, 7, 'INVALID FILE FORMAT')
+                else:
+                    self.new_signal2.emit(job, 3, 'MISSING')
+                    self.new_signal2.emit(job, 7, 'NO ALPHA')
+
+            elif job.type == 'Video':
+                file = job.path
+                metadata = subprocess.Popen('ffmpeg -i "%s" -hide_banner' % (file), shell=True, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+                out, err = metadata.communicate()
+                err = err.decode('utf-8')
+
+                alpha = any(x in err for x in alphaTags)
+
+                if not alpha:
+                    job.alpha = False
+                else:
+                    job.alpha = True
+
+                job.duration = re.findall('(\Duration: \S+),', err)[0].split(' ')[1]
+                self.new_signal2.emit(job, 6, job.duration)
+
+                job.resolution = re.findall(', (\d+x\d+)', err)[0]
+                self.new_signal2.emit(job, 5, job.resolution)
+
+                #correctFormat = ("Video: %s" % job.ffmpegName) in err.decode('utf-8')
+                #if not correctFormat:
+                 #   job.validFormat = False
+                 #   break
+                #else:
+                #    job.validFormat = True
+                self.new_signal2.emit(job, 4, '-')
+
+                if job.alpha:
+                    self.new_signal2.emit(job, 7, 'VALID')
+                    self.new_signal2.emit(job, 3, 'PRESENT')
+                    job.valid = True
+                else:
+                    self.new_signal2.emit(job, 3, 'MISSING')
+                    self.new_signal2.emit(job, 7, 'LOCAL ONLY')
+
+            if job.valid:
+                job.ingest.setVisible(1)
+
+    def scanFolderForAssets(self, folder):
+        folder.content = [x for x in os.listdir(folder.path) if (x.lower().endswith('.tga') or x.lower().endswith('.png'))]
+
+        #check folder's internal structure for individual image prefixes
+        for file in folder.content:
+            numbers = re.findall('\d+', file)
+            if numbers:
+                numSuffix = numbers[-1]
+                numSuffixIdx = file.rfind(numSuffix)
+                file = file[:numSuffixIdx] + str(len(numSuffix)) + file[numSuffixIdx + len(numSuffix):]
+                folder.prefixesFound.append((file, numSuffixIdx))
+            else:
+                folder.jobs.append(Still(os.path.join(folder.path, file)))
+
+        folder.prefixesFound = set(folder.prefixesFound)
+
+        #check each of the prefixes for sequence
+        for prefix in folder.prefixesFound:
+            matrix = prefix[0][:prefix[1]]
+            list = [file for file in folder.content if file.startswith(matrix)]
+            newMatrix = (matrix + '%d0' + prefix[0][prefix[1]:])
+            gaps = False
+            if len(list) >= 2:
+                for i in range(1, len(list)):
+                    if int(re.findall('\d+', list[i])[-1]) - int(re.findall('\d+', list[i-1])[-1]) != 1:
+                        gaps = True
+                        break
+                    else:
+                        continue
+
+                folder.jobs.append(Sequence(folder.path, list, newMatrix, gaps))
+
+            else:
+                folder.jobs.append(Still(os.path.join(folder.path, list[0])))
+
+
+        folder.videos = [x for x in os.listdir(folder.path) if any(x.lower().endswith(y) for y in videoAssetTypes)]
+
+        for file in folder.videos:
+            folder.jobs.append(Video(os.path.join(folder.path, file)))
+
+        self.new_signal.emit(folder)
 
 class Job(object):
     jobs = []
