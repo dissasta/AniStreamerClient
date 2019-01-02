@@ -1,12 +1,13 @@
 import random, re, zipfile, subprocess, os, time, lzma
+from main import *
 from config import *
 from string import ascii_uppercase, digits
 from PyQt5 import QtCore
 from PyQt5.QtWidgets import QTreeWidget, QTreeWidgetItem, QApplication, QWidget
 import threading
 
-encodeAssetTypes = ['.mov', '.tga', '.png']
-videoAssetTypes = ['.ani', '.mov', '.mpeg', '.mpg', '.mkv', '.avi', '.mp4', '.wmv']
+sequenceAssetTypes = ['.tga', '.png']
+videoAssetTypes = ['.ani', '.mov', '.mpeg', '.mpg', '.mkv', '.avi', '.mp4', '.wmv', '.m2v', '.mxf']
 archiveAssetTypes = ['.zip', '.rar', '.7z']
 alphaTags = ['rgba', 'brga', 'bgra']
 
@@ -22,6 +23,9 @@ class Asset(object):
         if os.path.isfile(path):
             self.ext = os.path.basename(path).split('.')[-1]
         self.valid = False
+
+    def btnstate(self, checkbox):
+        print(checkbox, checkbox.isChecked())
 
     def genOutFilename(self):
         if self.type == 'Sequence':
@@ -129,9 +133,10 @@ class Archive(Asset):
                 with zipfile.ZipFile(self.path, 'r') as zip:
                     self.fileCount = len(zip.infolist())
                     for file in zip.namelist():
-                        zip.extract(file, tempFolder)
-                        self.counter += 1
-                        self.unzipCounterUpdate(signal)
+                        if not "_MACOSX" in file:
+                            zip.extract(file, tempFolder)
+                            self.counter += 1
+                            self.unzipCounterUpdate(signal)
                     self.unpacked = True
                     self.status = "Unpacking successful"
                     signal.emit(self, 7, 'UNZIPPED')
@@ -180,7 +185,6 @@ class JobScanner(QtCore.QThread):
             #self.createJobs()
             break
 
-
     def createTempFolder(self):
         if not os.path.exists(Config.tempDir):
             os.mkdir(Config.tempDir)
@@ -204,7 +208,7 @@ class JobScanner(QtCore.QThread):
             asset = asset.replace('/', '\\')
             if any(asset.lower().endswith(x) for x in videoAssetTypes):
                 self.newVideos.append(Video(asset))
-            elif any(asset.lower().endswith(x) for x in encodeAssetTypes[1:]):
+            elif any(asset.lower().endswith(x) for x in sequenceAssetTypes):
                 self.newStills.append(Still(asset))
             elif any(asset.lower().endswith(x) for x in archiveAssetTypes):
                 self.newArchives.append(Archive(asset))
@@ -316,109 +320,118 @@ class JobScanner(QtCore.QThread):
                 metadata = subprocess.Popen('ffmpeg -i "%s" -hide_banner' % (file), shell=True, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
                 out, err = metadata.communicate()
                 err = err.decode('utf-8')
-                alpha = any(x in err for x in alphaTags)
-                job.resolution = re.findall('\d+x\d+', err)[0]
-                self.new_signal2.emit(job, 5, job.resolution)
+                print(err)
+                if not 'decoding for stream 0 failed' in err:
+                    alpha = any(x in err for x in alphaTags)
+                    job.resolution = re.findall('\d+x\d+', err)[0]
+                    self.new_signal2.emit(job, 5, job.resolution)
 
-                if not alpha:
-                    job.alpha = False
-                else:
-                    job.alpha = True
-
-                correctFormat = ("Video: %s" % job.ffmpegName) in err
-                if not correctFormat:
-                    job.validFormat = False
-                else:
-                    job.validFormat = True
-
-                self.new_signal2.emit(job, 4, '-')
-                self.new_signal2.emit(job, 6, '-')
-
-                if job.alpha:
-                    self.new_signal2.emit(job, 7, 'DONE')
-                    self.new_signal2.emit(job, 3, 'PRESENT')
-                    if job.validFormat:
-                        self.new_signal2.emit(job, 7, 'VALID')
-                        job.valid = True
+                    if not alpha:
+                        job.alpha = False
                     else:
-                        self.new_signal2.emit(job, 7, 'INVALID FILE FORMAT')
+                        job.alpha = True
+
+                    correctFormat = ("Video: %s" % job.ffmpegName) in err
+                    if not correctFormat:
+                        job.validFormat = False
+                    else:
+                        job.validFormat = True
+
+                    self.new_signal2.emit(job, 4, '-')
+                    self.new_signal2.emit(job, 6, '-')
+
+                    if job.alpha:
+                        self.new_signal2.emit(job, 7, 'DONE')
+                        self.new_signal2.emit(job, 3, 'PRESENT')
+                        if job.validFormat:
+                            self.new_signal2.emit(job, 7, 'VALID')
+                            job.valid = True
+                        else:
+                            self.new_signal2.emit(job, 7, 'INVALID FILE FORMAT')
+                    else:
+                        self.new_signal2.emit(job, 3, 'MISSING')
+                        self.new_signal2.emit(job, 7, 'NO ALPHA')
                 else:
-                    self.new_signal2.emit(job, 3, 'MISSING')
-                    self.new_signal2.emit(job, 7, 'NO ALPHA')
+                    self.new_signal2.emit(job, 7, 'BAD INPUT')
 
             elif job.type == 'Video':
                 file = job.path
                 metadata = subprocess.Popen('ffmpeg -i "%s" -hide_banner' % (file), shell=True, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
                 out, err = metadata.communicate()
                 err = err.decode('utf-8')
+                if re.findall('Stream #0:0\(\S+\): Video', err) or re.findall('Stream #0:0: Video', err):
+                    alpha = any(x in err for x in alphaTags)
 
-                alpha = any(x in err for x in alphaTags)
+                    if not alpha:
+                        job.alpha = False
+                    else:
+                        job.alpha = True
 
-                if not alpha:
-                    job.alpha = False
+                    job.duration = re.findall('(\Duration: \S+),', err)[0].split(' ')[1]
+                    self.new_signal2.emit(job, 6, job.duration)
+
+                    job.resolution = re.findall(', (\d+x\d+)', err)[0]
+                    self.new_signal2.emit(job, 5, job.resolution)
+
+                    #correctFormat = ("Video: %s" % job.ffmpegName) in err.decode('utf-8')
+                    #if not correctFormat:
+                     #   job.validFormat = False
+                     #   break
+                    #else:
+                    #    job.validFormat = True
+                    self.new_signal2.emit(job, 4, '-')
+
+                    if job.alpha:
+                        self.new_signal2.emit(job, 7, 'VALID')
+                        self.new_signal2.emit(job, 3, 'PRESENT')
+                        job.valid = True
+                    else:
+                        self.new_signal2.emit(job, 3, 'MISSING')
+                        self.new_signal2.emit(job, 7, 'LOCAL ONLY')
+
                 else:
-                    job.alpha = True
-
-                job.duration = re.findall('(\Duration: \S+),', err)[0].split(' ')[1]
-                self.new_signal2.emit(job, 6, job.duration)
-
-                job.resolution = re.findall(', (\d+x\d+)', err)[0]
-                self.new_signal2.emit(job, 5, job.resolution)
-
-                #correctFormat = ("Video: %s" % job.ffmpegName) in err.decode('utf-8')
-                #if not correctFormat:
-                 #   job.validFormat = False
-                 #   break
-                #else:
-                #    job.validFormat = True
-                self.new_signal2.emit(job, 4, '-')
-
-                if job.alpha:
-                    self.new_signal2.emit(job, 7, 'VALID')
-                    self.new_signal2.emit(job, 3, 'PRESENT')
-                    job.valid = True
-                else:
-                    self.new_signal2.emit(job, 3, 'MISSING')
-                    self.new_signal2.emit(job, 7, 'LOCAL ONLY')
+                    self.new_signal2.emit(job, 7, 'BAD INPUT')
 
             if job.valid:
-                job.ingest.setVisible(1)
+                job.ingest.setEnabled(1)
+                #print(job.ingest)
 
     def scanFolderForAssets(self, folder):
-        folder.content = [x for x in os.listdir(folder.path) if (x.lower().endswith('.tga') or x.lower().endswith('.png'))]
+        for ext in sequenceAssetTypes:
+            folder.content = [x for x in os.listdir(folder.path) if (x.lower().endswith(ext))]
+            prefixesFound = []
 
-        #check folder's internal structure for individual image prefixes
-        for file in folder.content:
-            numbers = re.findall('\d+', file)
-            if numbers:
-                numSuffix = numbers[-1]
-                numSuffixIdx = file.rfind(numSuffix)
-                file = file[:numSuffixIdx] + str(len(numSuffix)) + file[numSuffixIdx + len(numSuffix):]
-                folder.prefixesFound.append((file, numSuffixIdx))
-            else:
-                folder.jobs.append(Still(os.path.join(folder.path, file)))
+            #check folder's internal structure for individual image prefixes
+            for file in folder.content:
+                numbers = re.findall('(\d+)\.', file)
+                if numbers:
+                    numSuffix = numbers[-1]
+                    numSuffixIdx = file.rfind(numSuffix)
+                    file = file[:numSuffixIdx] + str(len(numSuffix)) + file[numSuffixIdx + len(numSuffix):]
+                    prefixesFound.append((file, numSuffixIdx))
+                else:
+                    folder.jobs.append(Still(os.path.join(folder.path, file)))
 
-        folder.prefixesFound = set(folder.prefixesFound)
+            prefixesFound = set(prefixesFound)
 
-        #check each of the prefixes for sequence
-        for prefix in folder.prefixesFound:
-            matrix = prefix[0][:prefix[1]]
-            list = [file for file in folder.content if file.startswith(matrix)]
-            newMatrix = (matrix + '%d0' + prefix[0][prefix[1]:])
-            gaps = False
-            if len(list) >= 2:
-                for i in range(1, len(list)):
-                    if int(re.findall('\d+', list[i])[-1]) - int(re.findall('\d+', list[i-1])[-1]) != 1:
-                        gaps = True
-                        break
-                    else:
-                        continue
+            #check each of the prefixes for sequence
+            for prefix in prefixesFound:
+                matrix = prefix[0][:prefix[1]]
+                list = [file for file in folder.content if file.startswith(matrix)]
+                newMatrix = (matrix + '%d0' + prefix[0][prefix[1]:])
+                gaps = False
+                if len(list) >= 2:
+                    for i in range(1, len(list)):
+                        if int(re.findall('(\d+)', list[i])[-1]) - int(re.findall('(\d+)', list[i-1])[-1]) != 1:
+                            gaps = True
+                            break
+                        else:
+                            continue
 
-                folder.jobs.append(Sequence(folder.path, list, newMatrix, gaps))
+                    folder.jobs.append(Sequence(folder.path, list, newMatrix, gaps))
 
-            else:
-                folder.jobs.append(Still(os.path.join(folder.path, list[0])))
-
+                else:
+                    folder.jobs.append(Still(os.path.join(folder.path, list[0])))
 
         folder.videos = [x for x in os.listdir(folder.path) if any(x.lower().endswith(y) for y in videoAssetTypes)]
 

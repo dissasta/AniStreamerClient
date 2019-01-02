@@ -4,7 +4,7 @@ from PyQt5 import QtGui
 import os
 
 class Config(QMainWindow):
-    tempDir = 'e:/tools/TEMP'
+    tempDir = 'd:/WORKSPACE/TEMP'
     def __init__(self, mainApp):
         super().__init__()
         self.title = 'Config'

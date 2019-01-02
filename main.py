@@ -1,19 +1,21 @@
-import sys
-import os
+import sys, os, ctypes, socket, threading, subprocess
 from PyQt5 import QtGui
 from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QLabel, QPushButton, QTreeWidget, QCheckBox
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt, QTimer, QSize
 from config import Config
-import ctypes
-import socket
 from comms import *
 from jobhandler import *
-import threading
 
+ffmpegPresent = False
 serverIP = '192.168.0.33'
 serverPort = 6666
 buffSize = 1024
+
+def ffmpegCheck():
+    metadata = subprocess.Popen('ffmpeg', shell=True, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+    out,err = metadata.communicate()
+    return 'FFmpeg developers' in err.decode('utf-8')
 
 class JobHandlerWidget(QWidget):
     def __init__(self):
@@ -80,11 +82,11 @@ class JobHandlerWidget(QWidget):
             newEntry = QTreeWidgetItem([o.path, "", o.type])
             self.tree.addTopLevelItem(newEntry)
             if not o.type == "" and not o.type == "Archive":
-                print('hre')
                 o.widgetItem = newEntry
                 ingestCheckbox = QCheckBox()
                 ingestCheckbox.setMaximumSize(14, 14)
                 o.ingest = ingestCheckbox
+                o.ingest.setEnabled(0)
                 self.tree.setItemWidget(o.widgetItem, 8, ingestCheckbox)
 
         o.widgetItem = newEntry
@@ -106,12 +108,11 @@ class JobHandlerWidget(QWidget):
                     o.widgetItem.addChild(folderChild)
                     job.widgetItem = folderChild
 
-                ingestCheckbox = QCheckBox()
-                ingestCheckbox.setMaximumSize(14, 14)
-                ingestCheckbox.toggled.connect(lambda: self.btnstate(ingestCheckbox))
-                ingestCheckbox.hide()
-                job.ingest = ingestCheckbox
-                self.tree.setItemWidget(job.widgetItem, 8, ingestCheckbox)
+                job.ingest = QCheckBox()
+                job.ingest.setMaximumSize(14, 14)
+                #job.ingest.toggled.connect(lambda: print(job.ingest))
+                job.ingest.setEnabled(0)
+                self.tree.setItemWidget(job.widgetItem, 8, job.ingest)
 
         self.tree.expandAll()
         self.tree.sortByColumn(0, 0)
@@ -119,9 +120,6 @@ class JobHandlerWidget(QWidget):
 
     def updateEntry(self, job, column, text):
         job.widgetItem.setText(column, text)
-
-    def btnstate(self, checkbox):
-        print(checkbox.isChecked())
 
     def closeEvent(self, e):
         e.ignore()
@@ -208,9 +206,10 @@ class Client(QMainWindow):
         self.initIcon()
         self.initDropZone()
         self.initConfigMenu()
-        self.makeConnection()
+        #self.makeConnection()
         self.senderThread = Sender(self.socket)
         self.senderThread.start()
+        print(ffmpegPresent)
         self.show()
 
     def initUI(self):
@@ -316,6 +315,7 @@ class Client(QMainWindow):
             print('Couldn\'t connect')
 
 if __name__ == '__main__':
+    ffmpegPresent = ffmpegCheck()
     app = QApplication(sys.argv)
     ex = Client()
     sys.exit(app.exec_())
