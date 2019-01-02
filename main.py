@@ -3,7 +3,7 @@ from PyQt5 import QtGui
 from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QLabel, QPushButton, QTreeWidget, QCheckBox
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt, QTimer, QSize
-from config import Config
+from config import Config, toolCheck
 from comms import *
 from jobhandler import *
 
@@ -11,11 +11,6 @@ ffmpegPresent = False
 serverIP = '192.168.0.33'
 serverPort = 6666
 buffSize = 1024
-
-def ffmpegCheck():
-    metadata = subprocess.Popen('ffmpeg', shell=True, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-    out,err = metadata.communicate()
-    return 'FFmpeg developers' in err.decode('utf-8')
 
 class JobHandlerWidget(QWidget):
     def __init__(self):
@@ -171,7 +166,7 @@ class DropZone(QWidget):
         self.hideSelf()
 
     def dragEnterEvent(self, e):
-        if e.mimeData().hasUrls():
+        if e.mimeData().hasUrls() and ffmpegPresent:
             e.accept()
         else:
             e.ignore()
@@ -281,7 +276,7 @@ class Client(QMainWindow):
         self.dropZone.hideSelf()
 
     def dragEnterEvent(self, e):
-        if e.mimeData().hasUrls():
+        if e.mimeData().hasUrls() and ffmpegPresent:
             e.accept()
         else:
             e.ignore()
@@ -315,7 +310,7 @@ class Client(QMainWindow):
             print('Couldn\'t connect')
 
 if __name__ == '__main__':
-    ffmpegPresent = ffmpegCheck()
+    ffmpegPresent = toolCheck('ffmpeg.exe')
     app = QApplication(sys.argv)
     ex = Client()
     sys.exit(app.exec_())

@@ -1,5 +1,5 @@
-import random, re, zipfile, subprocess, os, time, lzma
-from main import *
+import random, re, zipfile, subprocess, os, time, lzma, shutil, rarfile, tarfile
+from config import toolCheck
 from config import *
 from string import ascii_uppercase, digits
 from PyQt5 import QtCore
@@ -8,8 +8,13 @@ import threading
 
 sequenceAssetTypes = ['.tga', '.png']
 videoAssetTypes = ['.ani', '.mov', '.mpeg', '.mpg', '.mkv', '.avi', '.mp4', '.wmv', '.m2v', '.mxf']
-archiveAssetTypes = ['.zip', '.rar', '.7z']
+archiveAssetTypes = ['.zip', '.7z', '.tar', '.rar']
 alphaTags = ['rgba', 'brga', 'bgra']
+
+if not toolCheck('UnRAR.exe'):
+    archiveAssetTypes.remove('.rar')
+if not toolCheck('7z.exe'):
+    archiveAssetTypes.remove('.7z')
 
 class Asset(object):
     def __init__(self, path):
@@ -115,6 +120,7 @@ class Archive(Asset):
     def __init__(self, path):
         Asset.__init__(self, path)
         self.tempFolderName = self.generateTempArchiveFolder()
+        self.tempFolderPath = os.path.join(Config.tempDir, self.tempFolderName)
         self.fileCount = 0
         self.counter = 0
         self.unpacked = False
@@ -138,13 +144,40 @@ class Archive(Asset):
                             self.counter += 1
                             self.unzipCounterUpdate(signal)
                     self.unpacked = True
-                    self.status = "Unpacking successful"
-                    signal.emit(self, 7, 'UNZIPPED')
+                    signal.emit(self, 7, 'EXTRACTED')
 
             except Exception:
-                print('Bad Zip File')
-                self.status = "Unpacking failed"
-                os.remove(tempFolder)
+                print('Bad ZIP File')
+
+        elif self.ext.lower() == 'rar':
+            try:
+                with rarfile.RarFile(self.path, 'r') as rar:
+                    content = [name for name in rar.namelist() if not '_MACOSX' in name]
+                    self.fileCount = len(content)
+                    for file in content:
+                        rar.extract(file, tempFolder)
+                        self.counter += 1
+                        self.unzipCounterUpdate(signal)
+                    self.unpacked = True
+                    signal.emit(self, 7, 'EXTRACTED')
+
+            except Exception:
+                print('Bad RAR File')
+
+        elif self.ext.lower() == 'tar':
+            try:
+                with tarfile.TarFile(self.path, 'r') as tar:
+                    content = [name for name in tar.getnames() if not '_MACOSX' in name]
+                    self.fileCount = len(content)
+                    for file in content:
+                        tar.extract(file, tempFolder)
+                        self.counter += 1
+                        self.unzipCounterUpdate(signal)
+                    self.unpacked = True
+                    signal.emit(self, 7, 'EXTRACTED')
+
+            except Exception:
+                print('Bad TAR File')
 
 class JobScanner(QtCore.QThread):
     new_signal = QtCore.pyqtSignal(object)
@@ -213,27 +246,26 @@ class JobScanner(QtCore.QThread):
             elif any(asset.lower().endswith(x) for x in archiveAssetTypes):
                 self.newArchives.append(Archive(asset))
 
-        #self.tempArchiveFolders = []
-        #self.handleArchives()
-
     def handleArchives(self):
         #extract archives to TEMP folder
+        for archive in self.newArchives:
+            if not os.path.exists(archive.tempFolderPath):
+                os.mkdir(archive.tempFolderPath)
+            self.new_signal.emit(archive)
+
         while self.newArchives:
             archive = self.newArchives.pop(0)
-            tempFolder = os.path.join(Config.tempDir, archive.tempFolderName)
-            os.mkdir(tempFolder)
-            self.new_signal.emit(archive)
-            archive.unpack(tempFolder, self.new_signal2)
+            archive.unpack(archive.tempFolderPath, self.new_signal2)
 
-        #move each archive object from newArchives into allArchives
+            # move each archive object from newArchives into allArchives|might not be needed
             self.allArchives.append(archive)
 
-        #add new temporary folders to a list for further scanning
-            self.assets.append(tempFolder)
-
-        #scan the structure again of any of the newly created temporary archive folders
-        '''if self.tempArchiveFolders:
-            self.scanStructure(self.tempArchiveFolders)'''
+            # add new temporary folders to a list for further scanning
+            if archive.unpacked:
+                self.assets.append(archive.tempFolderPath)
+            else:
+                self.new_signal2.emit(archive, 7, 'CORRUPTED?')
+                shutil.rmtree(archive.tempFolderPath, ignore_errors=True)
 
     def handleStills(self):
         while self.newStills:
