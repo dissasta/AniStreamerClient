@@ -1,4 +1,4 @@
-import random, re, zipfile, subprocess, os, time, lzma, shutil, rarfile, tarfile
+import random, re, zipfile, subprocess, os, time, shutil, rarfile, tarfile
 from config import toolCheck
 from config import *
 from string import ascii_uppercase, digits
@@ -179,6 +179,22 @@ class Archive(Asset):
             except Exception:
                 print('Bad TAR File')
 
+        elif self.ext.lower() == '7z':
+            try:
+                with lzma.open(self.path, 'r') as szip:
+                    content = [name for name in szip.getnames() if not '_MACOSX' in name]
+                    self.fileCount = len(content)
+                    for file in content:
+                        tar.extract(file, tempFolder)
+                        self.counter += 1
+                        self.unzipCounterUpdate(signal)
+                    self.unpacked = True
+                    signal.emit(self, 7, 'EXTRACTED')
+
+            except Exception:
+                print('Bad TAR File')
+
+
 class JobScanner(QtCore.QThread):
     new_signal = QtCore.pyqtSignal(object)
     new_signal2 = QtCore.pyqtSignal(object, int, str)
@@ -227,14 +243,15 @@ class JobScanner(QtCore.QThread):
         if os.path.isdir(asset):
             walked = [[root, files] for root, folder, files in os.walk(asset)]
             for entry in walked:
-                entry[0] = entry[0].replace('/', '\\')
-                self.newFolders.append(Folder(entry[0]))
-                # scan again for rogue video and archive files
-                for file in entry[1]:
-                    if any(file.lower().endswith(x) for x in archiveAssetTypes):
-                        self.newArchives.append(Archive(os.path.join(entry[0], file)))
-                    #if any(file.lower().endswith(x) for x in videoAssetTypes):
-                    #    self.newVideos.append(Video(os.path.join(entry[0], file)))
+                if not '_MACOSX' in entry[0]:
+                    entry[0] = entry[0].replace('/', '\\')
+                    self.newFolders.append(Folder(entry[0]))
+                    # scan again for rogue video and archive files
+                    for file in entry[1]:
+                        if any(file.lower().endswith(x) for x in archiveAssetTypes):
+                            self.newArchives.append(Archive(os.path.join(entry[0], file)))
+                        #if any(file.lower().endswith(x) for x in videoAssetTypes):
+                        #    self.newVideos.append(Video(os.path.join(entry[0], file)))
 
         #scan individual files for import
         elif os.path.isfile(asset):
@@ -391,10 +408,11 @@ class JobScanner(QtCore.QThread):
                 metadata = subprocess.Popen('ffmpeg -i "%s" -hide_banner' % (file), shell=True, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
                 out, err = metadata.communicate()
                 err = err.decode('utf-8')
-                if re.findall('Stream #0:0\(\S+\): Video', err) or re.findall('Stream #0:0: Video', err):
+                aniCondition = re.findall('Stream #0:0\[\S+\]: Video', err) and re.findall('Stream #0:1\[\S+\]: Video', err)
+                if re.findall('Stream #0:0\(\S+\): Video', err) or re.findall('Stream #0:0: Video', err) or aniCondition:
                     alpha = any(x in err for x in alphaTags)
 
-                    if not alpha:
+                    if not alpha and not aniCondition:
                         job.alpha = False
                     else:
                         job.alpha = True
@@ -430,7 +448,7 @@ class JobScanner(QtCore.QThread):
 
     def scanFolderForAssets(self, folder):
         for ext in sequenceAssetTypes:
-            folder.content = [x for x in os.listdir(folder.path) if (x.lower().endswith(ext))]
+            folder.content = sorted([x for x in os.listdir(folder.path) if (x.lower().endswith(ext))])
             prefixesFound = []
 
             #check folder's internal structure for individual image prefixes
