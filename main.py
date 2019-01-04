@@ -1,8 +1,8 @@
 import sys, os, ctypes, socket, threading, subprocess
 from PyQt5 import QtGui
-from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QLabel, QPushButton, QTreeWidget, QCheckBox
+from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QLabel, QPushButton, QTreeWidget, QCheckBox, QComboBox
 from PyQt5 import QtWidgets
-from PyQt5.QtCore import Qt, QTimer, QSize
+from PyQt5.QtCore import Qt, QTimer, QSize, QRect
 from config import Config, toolCheck
 from comms import *
 from jobhandler import *
@@ -11,6 +11,11 @@ ffmpegPresent = False
 serverIP = '192.168.0.33'
 serverPort = 6666
 buffSize = 1024
+
+"""
+TODO:
+-7zip implementation
+"""
 
 class JobHandlerWidget(QWidget):
     def __init__(self):
@@ -83,6 +88,8 @@ class JobHandlerWidget(QWidget):
                 o.ingest = ingestCheckbox
                 o.ingest.setEnabled(0)
                 self.tree.setItemWidget(o.widgetItem, 8, ingestCheckbox)
+                o.format = QComboBox()
+                self.tree.setItemWidget(o.widgetItem, 9, o.format)
 
         o.widgetItem = newEntry
         o.widgetRow = self.tree.topLevelItemCount() - 1
@@ -105,9 +112,13 @@ class JobHandlerWidget(QWidget):
 
                 job.ingest = QCheckBox()
                 job.ingest.setMaximumSize(14, 14)
-                #job.ingest.toggled.connect(lambda: print(job.ingest))
+                #job.ingest.toggled.connect(partial(job.btnstate))
+                #job.ingest.clicked.connect(self.onStateChanged)
                 job.ingest.setEnabled(0)
                 self.tree.setItemWidget(job.widgetItem, 8, job.ingest)
+
+                job.format = QComboBox()
+                self.tree.setItemWidget(job.widgetItem, 9, job.format)
 
         self.tree.expandAll()
         self.tree.sortByColumn(0, 0)
@@ -295,6 +306,10 @@ class Client(QMainWindow):
     def hideEvent(self, e):
         e.ignore()
         #self.configMenu.hide()
+
+    def onStateChanged(self):
+        ch = self.sender()
+        print(ch.parent())
 
     def exit(self):
         sys.exit()

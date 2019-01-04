@@ -8,7 +8,7 @@ import threading
 
 sequenceAssetTypes = ['.tga', '.png']
 videoAssetTypes = ['.ani', '.mov', '.mpeg', '.mpg', '.mkv', '.avi', '.mp4', '.wmv', '.m2v', '.mxf']
-archiveAssetTypes = ['.zip', '.7z', '.tar', '.rar']
+archiveAssetTypes = ['.zip', '.tar', '.rar']
 alphaTags = ['rgba', 'brga', 'bgra']
 
 if not toolCheck('UnRAR.exe'):
@@ -29,8 +29,23 @@ class Asset(object):
             self.ext = os.path.basename(path).split('.')[-1]
         self.valid = False
 
-    def btnstate(self, checkbox):
-        print(checkbox, checkbox.isChecked())
+    def btnstate(self):
+        print(self.ingest.isChecked())
+
+    def fillFormats(self):
+        self.format.clear()
+        if self.ingest.isChecked():
+            for format in self.ingestFormats:
+                self.format.addItem(format)
+            return
+
+        if self.alpha:
+            for format in self.localFormatsAlpha:
+                self.format.addItem(format)
+
+        else:
+            for format in self.localFormatsNoAlpha:
+                self.format.addItem(format)
 
     def genOutFilename(self):
         if self.type == 'Sequence':
@@ -77,8 +92,13 @@ class Video(Asset):
         self.type = 'Video'
         self.toMov = False
         self.uncompress = False
+        self.formats = []
         self.ffmpegTags = ['matroska', 'webm', 'qtrle', 'prores']
         self.outFilename = self.genOutFilename()
+        self.format = None
+        self.localFormatsAlpha = ['', 'ANI', 'MOV', 'PNG SEQUENCE', 'TGA SEQUENCE', 'PNG SEQUENCE 2xFPS']
+        self.localFormatsNoAlpha = ['', 'PNG SEQUENCE', 'TGA SEQUENCE', 'PNG SEQUENCE 2xFPS']
+        self.ingestFormats = ['', 'ANI', 'MOV']
 
 class Folder(Asset):
     def __init__(self, path):
@@ -103,6 +123,9 @@ class Sequence(Asset):
         elif 'png' in matrix.lower():
             self.ffmpegName = 'png'
         self.outFilename = self.genOutFilename()
+        self.format = None
+        self.possibleFormats = {'local': ['ANI', 'MOV'],
+                                'ingest': ['ANI', 'MOV', 'PNG 2xFPS']}
 
 class Still(Asset):
     def __init__(self, path):
@@ -115,6 +138,10 @@ class Still(Asset):
         elif 'png' in self.basename.lower():
             self.ffmpegName = 'png'
         self.outFilename = self.genOutFilename()
+        self.format = None
+        self.localFormatsAlpha = ['', 'ANI', 'MOV']
+        self.localFormatsNoAlpha = []
+        self.ingestFormats = ['', 'TGA', 'PNG', 'ANI', 'MOV']
 
 class Archive(Asset):
     def __init__(self, path):
@@ -233,6 +260,9 @@ class JobScanner(QtCore.QThread):
             self.scanAssets(self.allVideos)
             #self.createJobs()
             break
+            for i in self.allFolders:
+                for job in i.jobs:
+                    print(job.format.currentText())
 
     def createTempFolder(self):
         if not os.path.exists(Config.tempDir):
@@ -369,7 +399,6 @@ class JobScanner(QtCore.QThread):
                 metadata = subprocess.Popen('ffmpeg -i "%s" -hide_banner' % (file), shell=True, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
                 out, err = metadata.communicate()
                 err = err.decode('utf-8')
-                print(err)
                 if not 'decoding for stream 0 failed' in err:
                     alpha = any(x in err for x in alphaTags)
                     job.resolution = re.findall('\d+x\d+', err)[0]
@@ -441,6 +470,8 @@ class JobScanner(QtCore.QThread):
 
                 else:
                     self.new_signal2.emit(job, 7, 'BAD INPUT')
+
+            job.fillFormats()
 
             if job.valid:
                 job.ingest.setEnabled(1)
