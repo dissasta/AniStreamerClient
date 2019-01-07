@@ -1,6 +1,6 @@
 import sys, os, ctypes, socket, threading, subprocess
 from PyQt5 import QtGui
-from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QLabel, QPushButton, QTreeWidget, QCheckBox, QComboBox
+from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QLabel, QPushButton, QTreeWidget, QCheckBox, QComboBox, QLineEdit
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt, QTimer, QSize, QRect
 from config import Config, toolCheck
@@ -23,7 +23,7 @@ class JobHandlerWidget(QWidget):
         self.title = 'JOB IMPORTER'
         self.left = 400
         self.top = 400
-        self.width = 1200
+        self.width = 1250
         self.height = 800
         #self.setWindowFlags(Qt.WindowStaysOnTopHint)
         self.initUI()
@@ -86,10 +86,13 @@ class JobHandlerWidget(QWidget):
                 ingestCheckbox = QCheckBox()
                 ingestCheckbox.setMaximumSize(14, 14)
                 o.ingest = ingestCheckbox
+                o.ingest.toggled.connect(o.btnstate)
                 o.ingest.setEnabled(0)
                 self.tree.setItemWidget(o.widgetItem, 8, ingestCheckbox)
                 o.format = QComboBox()
                 self.tree.setItemWidget(o.widgetItem, 9, o.format)
+                o.outFilename = QLineEdit()
+                self.tree.setItemWidget(o.widgetItem, 10, o.outFilename)
 
         o.widgetItem = newEntry
         o.widgetRow = self.tree.topLevelItemCount() - 1
@@ -112,13 +115,15 @@ class JobHandlerWidget(QWidget):
 
                 job.ingest = QCheckBox()
                 job.ingest.setMaximumSize(14, 14)
-                #job.ingest.toggled.connect(partial(job.btnstate))
-                #job.ingest.clicked.connect(self.onStateChanged)
+                job.ingest.toggled.connect(job.btnstate)
                 job.ingest.setEnabled(0)
                 self.tree.setItemWidget(job.widgetItem, 8, job.ingest)
 
                 job.format = QComboBox()
                 self.tree.setItemWidget(job.widgetItem, 9, job.format)
+
+                job.outFilename = QLineEdit()
+                self.tree.setItemWidget(job.widgetItem, 10, job.outFilename)
 
         self.tree.expandAll()
         self.tree.sortByColumn(0, 0)
@@ -202,7 +207,7 @@ class Client(QMainWindow):
         self.title = 'ANI-STREAMER CLIENT v0.1'
         self.left = 200
         self.top = 300
-        self.width = 1200
+        self.width = 1250
         self.height = 800
         self.connected = False
         self.socket = None
@@ -215,13 +220,12 @@ class Client(QMainWindow):
         #self.makeConnection()
         self.senderThread = Sender(self.socket)
         self.senderThread.start()
-        print(ffmpegPresent)
         self.show()
 
     def initUI(self):
         self.setWindowTitle(self.title)
         self.setGeometry(self.left, self.top, self.width, self.height)
-        self.setFixedSize(self.width, self.height)
+        #self.setFixedSize(self.width, self.height)
         self.setAutoFillBackground(True)
         p = self.palette()
         p.setColor(self.backgroundRole(), QtGui.QColor(60, 63, 65))
@@ -306,10 +310,6 @@ class Client(QMainWindow):
     def hideEvent(self, e):
         e.ignore()
         #self.configMenu.hide()
-
-    def onStateChanged(self):
-        ch = self.sender()
-        print(ch.parent())
 
     def exit(self):
         sys.exit()

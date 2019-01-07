@@ -28,9 +28,11 @@ class Asset(object):
         if os.path.isfile(path):
             self.ext = os.path.basename(path).split('.')[-1]
         self.valid = False
+        self.outFilename = None
 
     def btnstate(self):
-        print(self.ingest.isChecked())
+        if self.ingest:
+            self.fillFormats()
 
     def fillFormats(self):
         self.format.clear()
@@ -39,7 +41,7 @@ class Asset(object):
                 self.format.addItem(format)
             return
 
-        if self.alpha:
+        if self.alpha and self.valid:
             for format in self.localFormatsAlpha:
                 self.format.addItem(format)
 
@@ -94,7 +96,6 @@ class Video(Asset):
         self.uncompress = False
         self.formats = []
         self.ffmpegTags = ['matroska', 'webm', 'qtrle', 'prores']
-        self.outFilename = self.genOutFilename()
         self.format = None
         self.localFormatsAlpha = ['', 'ANI', 'MOV', 'PNG SEQUENCE', 'TGA SEQUENCE', 'PNG SEQUENCE 2xFPS']
         self.localFormatsNoAlpha = ['', 'PNG SEQUENCE', 'TGA SEQUENCE', 'PNG SEQUENCE 2xFPS']
@@ -122,10 +123,10 @@ class Sequence(Asset):
             self.ffmpegName = 'targa'
         elif 'png' in matrix.lower():
             self.ffmpegName = 'png'
-        self.outFilename = self.genOutFilename()
         self.format = None
-        self.possibleFormats = {'local': ['ANI', 'MOV'],
-                                'ingest': ['ANI', 'MOV', 'PNG 2xFPS']}
+        self.localFormatsAlpha = ['', 'ANI', 'MOV', 'PNG 2xFPS']
+        self.localFormatsNoAlpha = ['']
+        self.ingestFormats = ['', 'ANI', 'MOV']
 
 class Still(Asset):
     def __init__(self, path):
@@ -137,7 +138,6 @@ class Still(Asset):
             self.ffmpegName = 'targa'
         elif 'png' in self.basename.lower():
             self.ffmpegName = 'png'
-        self.outFilename = self.genOutFilename()
         self.format = None
         self.localFormatsAlpha = ['', 'ANI', 'MOV']
         self.localFormatsNoAlpha = []
@@ -260,9 +260,10 @@ class JobScanner(QtCore.QThread):
             self.scanAssets(self.allVideos)
             #self.createJobs()
             break
+            #time.sleep(5)
             for i in self.allFolders:
                 for job in i.jobs:
-                    print(job.format.currentText())
+                    print(job.outFilename.text())
 
     def createTempFolder(self):
         if not os.path.exists(Config.tempDir):
@@ -339,7 +340,7 @@ class JobScanner(QtCore.QThread):
     def scanAssets(self, items):
         #print("scanning")
         for job in items:
-            self.new_signal2.emit(job, 10, job.outFilename)
+            #self.new_signal2.emit(job, 10, job.outFilename)
             if job.type == 'Sequence':
                 if job.gaps:
                     self.new_signal2.emit(job, 4, 'YES')
@@ -347,7 +348,6 @@ class JobScanner(QtCore.QThread):
                     self.new_signal2.emit(job, 4, 'NO')
 
                 self.new_signal2.emit(job, 6, self.getDuration(job))
-
                 counter = 0
                 for i in job.content:
                     file = os.path.join(job.path, i)
@@ -428,7 +428,7 @@ class JobScanner(QtCore.QThread):
                             self.new_signal2.emit(job, 7, 'INVALID FILE FORMAT')
                     else:
                         self.new_signal2.emit(job, 3, 'MISSING')
-                        self.new_signal2.emit(job, 7, 'NO ALPHA')
+                        self.new_signal2.emit(job, 7, 'INVALID')
                 else:
                     self.new_signal2.emit(job, 7, 'BAD INPUT')
 
@@ -472,16 +472,17 @@ class JobScanner(QtCore.QThread):
                     self.new_signal2.emit(job, 7, 'BAD INPUT')
 
             job.fillFormats()
+            job.outFilename.setText(job.genOutFilename())
+            job.outFilename.setCursorPosition(0)
 
             if job.valid:
                 job.ingest.setEnabled(1)
-                #print(job.ingest)
+                #print(job.path)
 
     def scanFolderForAssets(self, folder):
         for ext in sequenceAssetTypes:
             folder.content = sorted([x for x in os.listdir(folder.path) if (x.lower().endswith(ext))])
             prefixesFound = []
-
             #check folder's internal structure for individual image prefixes
             for file in folder.content:
                 numbers = re.findall('(\d+)\.', file)
