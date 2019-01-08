@@ -8,7 +8,8 @@ def toolCheck(exeFile):
     return find_executable(exeFile) is not None
 
 class Config(QMainWindow):
-    tempDir = 'd:/WORKSPACE/TEMP'
+    tempDir = 'd:\\WORKSPACE\\TEMP'
+    outputDir = 'd:\\WORKSPACE\\OUTPUT'
     def __init__(self, mainApp):
         super().__init__()
         self.title = 'Config'

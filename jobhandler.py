@@ -29,6 +29,7 @@ class Asset(object):
             self.ext = os.path.basename(path).split('.')[-1]
         self.valid = False
         self.outFilename = None
+        self.targetPath = None
 
     def btnstate(self):
         if self.ingest:
@@ -139,9 +140,11 @@ class Still(Asset):
         elif 'png' in self.basename.lower():
             self.ffmpegName = 'png'
         self.format = None
+        self.isTGA = False
+        self.isPNG = False
         self.localFormatsAlpha = ['', 'ANI', 'MOV']
         self.localFormatsNoAlpha = []
-        self.ingestFormats = ['', 'TGA', 'PNG', 'ANI', 'MOV']
+        self.ingestFormats = ['', 'PASS-THROUGH', 'ANI', 'MOV']
 
 class Archive(Asset):
     def __init__(self, path):
@@ -225,6 +228,7 @@ class Archive(Asset):
 class JobScanner(QtCore.QThread):
     new_signal = QtCore.pyqtSignal(object)
     new_signal2 = QtCore.pyqtSignal(object, int, str)
+    jobsReadySignal = QtCore.pyqtSignal(int)
     def __init__(self, assets):
         QtCore.QThread.__init__(self)
         self.assets = assets
@@ -238,6 +242,7 @@ class JobScanner(QtCore.QThread):
         self.allStills = []
         self.allFolders = []
         self.tempArchiveFolders = []
+        self.ready = False
 
     def run(self):
         self.createTempFolder()
@@ -258,6 +263,8 @@ class JobScanner(QtCore.QThread):
                 self.scanAssets(folder.jobs)
             self.scanAssets(self.allStills)
             self.scanAssets(self.allVideos)
+            self.ready = True
+            self.jobsReadySignal.emit(1)
             #self.createJobs()
             break
             #time.sleep(5)
@@ -409,11 +416,14 @@ class JobScanner(QtCore.QThread):
                     else:
                         job.alpha = True
 
-                    correctFormat = ("Video: %s" % job.ffmpegName) in err
-                    if not correctFormat:
-                        job.validFormat = False
-                    else:
+                    if job.basename.split('.')[-1].lower() == 'tga' and "Video: targa" in err:
                         job.validFormat = True
+                        job.isTGA = True
+                        job.ingestFormats.insert(2, 'PNG')
+                    elif job.basename.split('.')[-1].lower() == 'png' and "Video: png" in err:
+                        job.validFormat = True
+                        job.isPNG = True
+                        job.ingestFormats.insert(2, 'TGA')
 
                     self.new_signal2.emit(job, 4, '-')
                     self.new_signal2.emit(job, 6, '-')
@@ -451,13 +461,6 @@ class JobScanner(QtCore.QThread):
 
                     job.resolution = re.findall(', (\d+x\d+)', err)[0]
                     self.new_signal2.emit(job, 5, job.resolution)
-
-                    #correctFormat = ("Video: %s" % job.ffmpegName) in err.decode('utf-8')
-                    #if not correctFormat:
-                     #   job.validFormat = False
-                     #   break
-                    #else:
-                    #    job.validFormat = True
                     self.new_signal2.emit(job, 4, '-')
 
                     if job.alpha:
@@ -474,6 +477,7 @@ class JobScanner(QtCore.QThread):
             job.fillFormats()
             job.outFilename.setText(job.genOutFilename())
             job.outFilename.setCursorPosition(0)
+            job.outFilename.setEnabled(1)
 
             if job.valid:
                 job.ingest.setEnabled(1)

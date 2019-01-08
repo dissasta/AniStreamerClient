@@ -2,7 +2,7 @@ import sys, os, ctypes, socket, threading, subprocess
 from PyQt5 import QtGui
 from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QLabel, QPushButton, QTreeWidget, QCheckBox, QComboBox, QLineEdit
 from PyQt5 import QtWidgets
-from PyQt5.QtCore import Qt, QTimer, QSize, QRect
+from PyQt5.QtCore import Qt, QTimer, QSize, QRect, QRectF
 from config import Config, toolCheck
 from comms import *
 from jobhandler import *
@@ -22,20 +22,23 @@ class JobHandlerWidget(QWidget):
         QWidget.__init__(self)
         self.title = 'JOB IMPORTER'
         self.left = 400
-        self.top = 400
+        self.top = 200
         self.width = 1250
         self.height = 800
         #self.setWindowFlags(Qt.WindowStaysOnTopHint)
+        self.jobsReady = False
+        self.jobsDone = False
         self.initUI()
 
     def initUI(self):
         self.setWindowTitle(self.title)
         self.setGeometry(self.left, self.top, self.width, self.height)
         self.setMaximumSize(self.width, self.height)
+        self.setAutoFillBackground(False)
         self.tree = QTreeWidget(self)
         self.tree.setAlternatingRowColors(True)
         self.tree.setSortingEnabled(True)
-        self.tree.resize(self.width, self.height)
+        self.tree.resize(self.width, self.height-30)
         self.tree.setStyleSheet("QHeaderView::section{background-color: rgb(50, 50, 50); color: grey;}")
         self.tree.setStyleSheet("color: grey; background-color: rgb(60, 63, 65); alternate-background-color: rgb(66, 67, 69)")
         self.tree.setColumnCount(3)
@@ -48,12 +51,14 @@ class JobHandlerWidget(QWidget):
         self.tree.setColumnWidth(8, 40)
         self.tree.setColumnWidth(9, 130)
         self.setWindowIcon(QtGui.QIcon('import.png'))
+        self.createGoButton()
         self.show()
 
     def scanJobs(self, assets):
         self.jobScannerThread = JobScanner(assets)
         self.jobScannerThread.new_signal.connect(self.createEntry)
         self.jobScannerThread.new_signal2.connect(self.updateEntry)
+        self.jobScannerThread.jobsReadySignal.connect(self.updateJobsReady)
         self.jobScannerThread.start()
 
     def createEntry(self, o):
@@ -92,6 +97,7 @@ class JobHandlerWidget(QWidget):
                 o.format = QComboBox()
                 self.tree.setItemWidget(o.widgetItem, 9, o.format)
                 o.outFilename = QLineEdit()
+                o.outFilename.setEnabled(0)
                 self.tree.setItemWidget(o.widgetItem, 10, o.outFilename)
 
         o.widgetItem = newEntry
@@ -123,11 +129,28 @@ class JobHandlerWidget(QWidget):
                 self.tree.setItemWidget(job.widgetItem, 9, job.format)
 
                 job.outFilename = QLineEdit()
+                job.outFilename.setEnabled(0)
                 self.tree.setItemWidget(job.widgetItem, 10, job.outFilename)
 
         self.tree.expandAll()
         self.tree.sortByColumn(0, 0)
         self.tree.sortByColumn(2, 0)
+
+    def createGoButton(self):
+        self.goButton = QPushButton('RUN ALL', self)
+        self.goButton.setStyleSheet("background-color: rgb(50, 50, 50); color: grey;")
+        self.goButton.move(self.width - 78, self.height - 26)
+        self.goButton.setEnabled(0)
+        self.goButton.clicked.connect(lambda: self.runAllJobs())
+
+    def updateJobsReady(self, b):
+        if b:
+            self.jobsReady = True
+            self.goButton.setStyleSheet("background-color: rgb(50, 50, 50);color: green;")
+            self.goButton.setEnabled(1)
+
+    def runAllJobs(self):
+        print('runrunrun')
 
     def updateEntry(self, job, column, text):
         job.widgetItem.setText(column, text)
@@ -206,7 +229,7 @@ class Client(QMainWindow):
 
         self.title = 'ANI-STREAMER CLIENT v0.1'
         self.left = 200
-        self.top = 300
+        self.top = 160
         self.width = 1250
         self.height = 800
         self.connected = False
