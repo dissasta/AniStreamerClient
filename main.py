@@ -22,7 +22,7 @@ class JobHandlerWidget(QWidget):
         self.title = 'JOB IMPORTER'
         self.left = 400
         self.top = 200
-        self.width = 1250
+        self.width = 1300
         self.height = 800
         #self.setWindowFlags(Qt.WindowStaysOnTopHint)
         self.jobsReady = False
@@ -42,7 +42,7 @@ class JobHandlerWidget(QWidget):
         self.tree.setStyleSheet("color: grey; background-color: rgb(60, 63, 65); alternate-background-color: rgb(66, 67, 69);")
         self.tree.setFocusPolicy(Qt.NoFocus)
         self.tree.setColumnCount(11)
-        self.tree.setHeaderLabels(["Path", "IN Filename", "Type", "Alpha", "Gaps", "Resolution", "Duration", "Status", "Ingest", "Format", "OUT Filename"])
+        self.tree.setHeaderLabels(["Path", "IN Filename", "Type", "Alpha", "Gaps", "Resolution", "Duration", "Status", "Ingest", "Format", "OUT Filename", ""])
         self.tree.setColumnWidth(0, 300)
         self.tree.setColumnWidth(1, 150)
         for column in range(2,7):
@@ -51,7 +51,9 @@ class JobHandlerWidget(QWidget):
         self.tree.setColumnWidth(7, 78)
         self.tree.setColumnWidth(8, 40)
         self.tree.setColumnWidth(9, 130)
-        for column in range(2,10):
+        self.tree.setColumnWidth(10, 228)
+        self.tree.setColumnWidth(11, 32)
+        for column in range(2,12):
             self.tree.header().setSectionResizeMode(column, QtWidgets.QHeaderView.Fixed)
         self.setWindowIcon(QtGui.QIcon('import.png'))
         self.createGoButton()
@@ -100,11 +102,21 @@ class JobHandlerWidget(QWidget):
                 o.ingest.toggled.connect(o.btnstate)
                 o.ingest.setEnabled(0)
                 self.tree.setItemWidget(o.widgetItem, 8, ingestCheckboxlabel)
+
                 o.format = QComboBox()
+                o.format.activated.connect(o.toggleRunJobButton)
                 self.tree.setItemWidget(o.widgetItem, 9, o.format)
+
                 o.outFilename = QLineEdit()
                 o.outFilename.setEnabled(0)
                 self.tree.setItemWidget(o.widgetItem, 10, o.outFilename)
+
+                o.runJob = QPushButton('RUN', self)
+                o.runJob.setStyleSheet("background-color: rgb(30, 30, 30); color: grey;")
+                o.runJob.resize(32, 20)
+                o.runJob.setEnabled(0)
+                #job.runJob.clicked.connect(self.runJob(job))
+                self.tree.setItemWidget(o.widgetItem, 11, o.runJob)
 
         o.widgetItem = newEntry
         o.widgetRow = self.tree.topLevelItemCount() - 1
@@ -137,20 +149,30 @@ class JobHandlerWidget(QWidget):
                 self.tree.setItemWidget(job.widgetItem, 8, ingestCheckboxlabel)
 
                 job.format = QComboBox()
-                job.format.move(20,20)
+                job.format.activated.connect(job.toggleRunJobButton)
                 self.tree.setItemWidget(job.widgetItem, 9, job.format)
 
                 job.outFilename = QLineEdit()
                 job.outFilename.setEnabled(0)
                 self.tree.setItemWidget(job.widgetItem, 10, job.outFilename)
 
+                job.runJob = QPushButton('RUN', self)
+                job.runJob.setStyleSheet("background-color: rgb(30, 30, 30); color: grey;")
+                job.runJob.setFixedWidth(32)
+                job.runJob.setEnabled(0)
+                #job.runJob.clicked.connect(self.runJob(job))
+                self.tree.setItemWidget(job.widgetItem, 11, job.runJob)
+
         self.tree.expandAll()
         self.tree.sortByColumn(0, 0)
         self.tree.sortByColumn(2, 0)
 
+    def runJob(self, job):
+        print(job)
+
     def createGoButton(self):
         self.goButton = QPushButton('RUN ALL', self)
-        self.goButton.setStyleSheet("background-color: rgb(50, 50, 50); color: grey;")
+        self.goButton.setStyleSheet("background-color: rgb(30, 30, 30); color: grey;")
         self.goButton.move(self.width - 78, self.height - 26)
         self.goButton.setEnabled(0)
         self.goButton.clicked.connect(lambda: self.runAllJobs())

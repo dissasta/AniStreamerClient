@@ -9,7 +9,7 @@ import threading
 
 sequenceAssetTypes = ['.tga', '.png']
 videoAssetTypes = ['.ani', '.mov', '.mpeg', '.mpg', '.mkv', '.avi', '.mp4', '.wmv', '.m2v', '.mxf']
-archiveAssetTypes = ['.zip', '.tar', '.rar']
+archiveAssetTypes = ['.zip', '.tar', '.rar', '.7z']
 alphaTags = ['rgba', 'brga', 'bgra']
 
 if not toolCheck('UnRAR.exe'):
@@ -31,13 +31,24 @@ class Asset(object):
         self.valid = False
         self.outFilename = None
         self.targetPath = None
+        self.runJob = None
 
     def btnstate(self):
         if self.ingest:
             self.fillFormats()
 
+    def toggleRunJobButton(self):
+        if self.format.currentText():
+            self.runJob.setEnabled(1)
+            self.runJob.setStyleSheet("background-color: rgb(30, 30, 30); color: green;")
+        else:
+            self.runJob.setEnabled(0)
+            self.runJob.setStyleSheet("background-color: rgb(30, 30, 30); color: grey;")
+
     def fillFormats(self):
         self.format.clear()
+        self.runJob.setEnabled(0)
+        self.runJob.setStyleSheet("background-color: rgb(30, 30, 30); color: grey;")
         if self.ingest.isChecked():
             for format in self.ingestFormats:
                 self.format.addItem(format)
