@@ -16,7 +16,6 @@ buffSize = 1024
 TODO:
 -7zip implementation
 """
-
 class JobHandlerWidget(QWidget):
     def __init__(self):
         QWidget.__init__(self)
@@ -34,36 +33,40 @@ class JobHandlerWidget(QWidget):
         self.setWindowTitle(self.title)
         self.setGeometry(self.left, self.top, self.width, self.height)
         self.setMaximumSize(self.width, self.height)
-        self.setAutoFillBackground(False)
+        self.setAutoFillBackground(True)
         self.tree = QTreeWidget(self)
         self.tree.setAlternatingRowColors(True)
         self.tree.setSortingEnabled(True)
         self.tree.resize(self.width, self.height-30)
-        self.tree.setStyleSheet("QHeaderView::section{background-color: rgb(50, 50, 50); color: grey;}")
-        self.tree.setStyleSheet("color: grey; background-color: rgb(60, 63, 65); alternate-background-color: rgb(66, 67, 69)")
-        self.tree.setColumnCount(3)
+        self.tree.setStyleSheet("QHeaderView::section{background-color: rgb(50, 50, 50); color: rgb(100, 100, 150)};")
+        self.tree.setStyleSheet("color: grey; background-color: rgb(60, 63, 65); alternate-background-color: rgb(66, 67, 69);")
+        self.tree.setFocusPolicy(Qt.NoFocus)
+        self.tree.setColumnCount(11)
         self.tree.setHeaderLabels(["Path", "IN Filename", "Type", "Alpha", "Gaps", "Resolution", "Duration", "Status", "Ingest", "Format", "OUT Filename"])
         self.tree.setColumnWidth(0, 300)
         self.tree.setColumnWidth(1, 150)
         for column in range(2,7):
             self.tree.setColumnWidth(column, 68)
+            self.tree.header().setSectionResizeMode(column, QtWidgets.QHeaderView.Fixed)
         self.tree.setColumnWidth(7, 78)
         self.tree.setColumnWidth(8, 40)
         self.tree.setColumnWidth(9, 130)
+        for column in range(2,10):
+            self.tree.header().setSectionResizeMode(column, QtWidgets.QHeaderView.Fixed)
         self.setWindowIcon(QtGui.QIcon('import.png'))
         self.createGoButton()
         self.show()
 
     def scanJobs(self, assets):
-        self.jobScannerThread = JobScanner(assets)
-        self.jobScannerThread.new_signal.connect(self.createEntry)
-        self.jobScannerThread.new_signal2.connect(self.updateEntry)
-        self.jobScannerThread.jobsReadySignal.connect(self.updateJobsReady)
-        self.jobScannerThread.start()
+        self.jobHandlerThread = JobScanner(assets)
+        self.jobHandlerThread.new_signal.connect(self.createEntry)
+        self.jobHandlerThread.new_signal2.connect(self.updateEntry)
+        self.jobHandlerThread.jobsReadySignal.connect(self.updateJobsReady)
+        self.jobHandlerThread.start()
 
     def createEntry(self, o):
-        if self.jobScannerThread.allArchives:
-            for archive in self.jobScannerThread.allArchives:
+        if self.jobHandlerThread.allArchives:
+            for archive in self.jobHandlerThread.allArchives:
                 if archive.tempFolderName in o.path:
                     tempPath = os.path.join(Config.tempDir, archive.tempFolderName)
                     tempPath = tempPath.replace('/', '\\')
@@ -75,7 +78,7 @@ class JobHandlerWidget(QWidget):
                     break
                 else:
                     alreadyIn = False
-                    for archive in self.jobScannerThread.allArchives:
+                    for archive in self.jobHandlerThread.allArchives:
                         if archive.tempFolderName in o.path:
                             alreadyIn = True
                             break
@@ -88,12 +91,15 @@ class JobHandlerWidget(QWidget):
             self.tree.addTopLevelItem(newEntry)
             if not o.type == "" and not o.type == "Archive":
                 o.widgetItem = newEntry
-                ingestCheckbox = QCheckBox()
-                ingestCheckbox.setMaximumSize(14, 14)
-                o.ingest = ingestCheckbox
+                ingestCheckboxlabel = QLabel()
+                ingestCheckboxlabel.setMaximumSize(40,20)
+                ingestCheckboxlabel.setStyleSheet("background-color: rgba(0,0,0,0%)")
+                o.ingest = QCheckBox(ingestCheckboxlabel)
+                o.ingest.setMaximumSize(14, 14)
+                o.ingest.move(12, 3)
                 o.ingest.toggled.connect(o.btnstate)
                 o.ingest.setEnabled(0)
-                self.tree.setItemWidget(o.widgetItem, 8, ingestCheckbox)
+                self.tree.setItemWidget(o.widgetItem, 8, ingestCheckboxlabel)
                 o.format = QComboBox()
                 self.tree.setItemWidget(o.widgetItem, 9, o.format)
                 o.outFilename = QLineEdit()
@@ -119,13 +125,19 @@ class JobHandlerWidget(QWidget):
                     o.widgetItem.addChild(folderChild)
                     job.widgetItem = folderChild
 
-                job.ingest = QCheckBox()
+                ingestCheckboxlabel = QLabel()
+                ingestCheckboxlabel.setMaximumSize(40,20)
+                ingestCheckboxlabel.setStyleSheet("background-color: rgba(0,0,0,0%)")
+                job.ingest = QCheckBox(ingestCheckboxlabel)
                 job.ingest.setMaximumSize(14, 14)
+                job.ingest.move(12, 3)
                 job.ingest.toggled.connect(job.btnstate)
                 job.ingest.setEnabled(0)
-                self.tree.setItemWidget(job.widgetItem, 8, job.ingest)
+
+                self.tree.setItemWidget(job.widgetItem, 8, ingestCheckboxlabel)
 
                 job.format = QComboBox()
+                job.format.move(20,20)
                 self.tree.setItemWidget(job.widgetItem, 9, job.format)
 
                 job.outFilename = QLineEdit()
@@ -151,6 +163,9 @@ class JobHandlerWidget(QWidget):
 
     def runAllJobs(self):
         print('runrunrun')
+        self.goButton.setStyleSheet("background-color: rgb(50, 50, 50);color: red;")
+        self.goButton.setEnabled(0)
+        self.jobHandlerThread.processJobs()
 
     def updateEntry(self, job, column, text):
         job.widgetItem.setText(column, text)
@@ -163,7 +178,7 @@ class DropZone(QWidget):
     def __init__(self, mainApp):
         QWidget.__init__(self)
         self.mainApp = mainApp
-        self.fadeOffTime = 30
+        self.fadeOffTime = 15
         self.width = 250
         self.height = 100
         self.left = ctypes.windll.user32.GetSystemMetrics(0) - self.width - 20
@@ -197,7 +212,7 @@ class DropZone(QWidget):
         self.timer.start(10)
 
     def enterEvent(self, e):
-         self.setWindowOpacity(0.95)
+         self.setWindowOpacity(0.90)
          self.timer.stop()
          self.timer.deleteLater()
 

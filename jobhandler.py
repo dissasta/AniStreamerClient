@@ -1,6 +1,7 @@
 import random, re, zipfile, subprocess, os, time, shutil, rarfile, tarfile
 from config import toolCheck
 from config import *
+from encoder import *
 from string import ascii_uppercase, digits
 from PyQt5 import QtCore
 from PyQt5.QtWidgets import QTreeWidget, QTreeWidgetItem, QApplication, QWidget
@@ -47,8 +48,11 @@ class Asset(object):
                 self.format.addItem(format)
 
         else:
-            for format in self.localFormatsNoAlpha:
-                self.format.addItem(format)
+            if self.localFormatsNoAlpha:
+                for format in self.localFormatsNoAlpha:
+                    self.format.addItem(format)
+            else:
+                self.format.setDisabled(1)
 
     def genOutFilename(self):
         if self.type == 'Sequence':
@@ -59,7 +63,6 @@ class Asset(object):
             parentFolder = os.path.dirname(self.path).split('\\')[-1].lower()
             filename = self.basename
             outputFile = filename.split('.')[0]
-        string = 'x'
 
         if parentFolder == 'in' and ('_in' not in filename and ' in' not in filename):
             outputFile = outputFile + '_in'
@@ -87,7 +90,7 @@ class Asset(object):
             elif ('_out' in parentFolder or ' out' in parentFolder) and (' out' in filename or '_out' in filename):
                 outputFile = outputFile
 
-        return outputFile
+        return outputFile.rstrip()
 
 class Video(Asset):
     def __init__(self, path):
@@ -126,7 +129,7 @@ class Sequence(Asset):
             self.ffmpegName = 'png'
         self.format = None
         self.localFormatsAlpha = ['', 'ANI', 'MOV', 'PNG 2xFPS']
-        self.localFormatsNoAlpha = ['']
+        self.localFormatsNoAlpha = []
         self.ingestFormats = ['', 'ANI', 'MOV']
 
 class Still(Asset):
@@ -224,7 +227,6 @@ class Archive(Asset):
             except Exception:
                 print('Bad TAR File')
 
-
 class JobScanner(QtCore.QThread):
     new_signal = QtCore.pyqtSignal(object)
     new_signal2 = QtCore.pyqtSignal(object, int, str)
@@ -242,6 +244,7 @@ class JobScanner(QtCore.QThread):
         self.allStills = []
         self.allFolders = []
         self.tempArchiveFolders = []
+        self.completeJobs = []
         self.ready = False
 
     def run(self):
@@ -265,7 +268,6 @@ class JobScanner(QtCore.QThread):
             self.scanAssets(self.allVideos)
             self.ready = True
             self.jobsReadySignal.emit(1)
-            #self.createJobs()
             break
             #time.sleep(5)
             for i in self.allFolders:
@@ -358,7 +360,7 @@ class JobScanner(QtCore.QThread):
                 counter = 0
                 for i in job.content:
                     file = os.path.join(job.path, i)
-                    metadata = subprocess.Popen('ffmpeg -i "%s" -hide_banner' %(file), shell=True, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+                    metadata = subprocess.Popen(['ffmpeg', '-i', file, '-hide_banner'], stderr=subprocess.PIPE)
                     out, err = metadata.communicate()
                     err = err.decode('utf-8')
 
@@ -403,7 +405,7 @@ class JobScanner(QtCore.QThread):
 
             elif job.type == 'Still':
                 file = job.path
-                metadata = subprocess.Popen('ffmpeg -i "%s" -hide_banner' % (file), shell=True, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+                metadata = subprocess.Popen(['ffmpeg', '-i', file, '-hide_banner'], stderr=subprocess.PIPE)
                 out, err = metadata.communicate()
                 err = err.decode('utf-8')
                 if not 'decoding for stream 0 failed' in err:
@@ -444,7 +446,7 @@ class JobScanner(QtCore.QThread):
 
             elif job.type == 'Video':
                 file = job.path
-                metadata = subprocess.Popen('ffmpeg -i "%s" -hide_banner' % (file), shell=True, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+                metadata = subprocess.Popen(['ffmpeg', '-i', file, '-hide_banner'], stderr=subprocess.PIPE)
                 out, err = metadata.communicate()
                 err = err.decode('utf-8')
                 aniCondition = re.findall('Stream #0:0\[\S+\]: Video', err) and re.findall('Stream #0:1\[\S+\]: Video', err)
@@ -525,6 +527,26 @@ class JobScanner(QtCore.QThread):
             folder.jobs.append(Video(os.path.join(folder.path, file)))
 
         self.new_signal.emit(folder)
+
+    def processJobs(self):
+        for still in self.allStills:
+            still.outFilename.setEnabled(0)
+            still.format.setEnabled(0)
+            still.ingest.setEnabled(0)
+
+        for video in self.allVideos:
+            video.outFilename.setEnabled(0)
+            video.format.setEnabled(0)
+            video.ingest.setEnabled(0)
+
+        for folder in self.allFolders:
+            for job in folder.jobs:
+                job.outFilename.setEnabled(0)
+                job.format.setEnabled(0)
+                job.ingest.setEnabled(0)
+
+        for still in self.allStills:
+            encoder = Encoder(still)
 
 class Job(object):
     jobs = []
