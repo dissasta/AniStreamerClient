@@ -40,15 +40,15 @@ class Asset(object):
     def toggleRunJobButton(self):
         if self.format.currentText():
             self.runJob.setEnabled(1)
-            self.runJob.setStyleSheet("background-color: rgb(30, 30, 30); color: green;")
+            self.runJob.setStyleSheet("background-color: rgb(50, 50, 50); color: orange;")
         else:
             self.runJob.setEnabled(0)
-            self.runJob.setStyleSheet("background-color: rgb(30, 30, 30); color: grey;")
+            self.runJob.setStyleSheet("background-color: rgb(50, 50, 50); color: grey;")
 
     def fillFormats(self):
         self.format.clear()
         self.runJob.setEnabled(0)
-        self.runJob.setStyleSheet("background-color: rgb(30, 30, 30); color: grey;")
+        self.runJob.setStyleSheet("background-color: rgb(50, 50, 50); color: grey;")
         if self.ingest.isChecked():
             for format in self.ingestFormats:
                 self.format.addItem(format)
@@ -107,8 +107,9 @@ class Video(Asset):
     def __init__(self, path):
         Asset.__init__(self, path)
         self.type = 'Video'
-        self.toMov = False
         self.uncompress = False
+        self.fps = None
+        self.frameCount = None
         self.formats = []
         self.ffmpegTags = ['matroska', 'webm', 'qtrle', 'prores']
         self.format = None
@@ -242,6 +243,7 @@ class JobScanner(QtCore.QThread):
     new_signal = QtCore.pyqtSignal(object)
     new_signal2 = QtCore.pyqtSignal(object, int, str)
     jobsReadySignal = QtCore.pyqtSignal(int)
+    progressBar = QtCore.pyqtSignal(str, int, int, bool)
     def __init__(self, assets):
         QtCore.QThread.__init__(self)
         self.assets = assets
@@ -257,6 +259,7 @@ class JobScanner(QtCore.QThread):
         self.tempArchiveFolders = []
         self.completeJobs = []
         self.ready = False
+        self.encoder = None
 
     def run(self):
         self.createTempFolder()
@@ -356,6 +359,23 @@ class JobScanner(QtCore.QThread):
             ff = int(frames) - (ss*25) - (mm*60*25) - (hh*60*60*25)
             string = '%02d:%02d:%02d.%02d' % (hh, mm, ss, ff)
             return(str(string))
+
+        #might need to look into ffmpeg announced durations as they seem off sometimes
+        if job.type == 'Video' and job.frameCount:
+            frames = job.frameCount
+            hh = int(frames/60/60/job.fps)
+            mm = int((frames/60/job.fps) - (hh*60))
+            ss = int((frames/job.fps) - (mm*60) - (hh*60* 60))
+            ff = round(float(frames - (ss*job.fps) - (mm*60*job.fps) - (hh*60*60*job.fps)))
+            string = '%02d:%02d:%02d.%02d' % (hh, mm, ss, ff)
+            return(str(string))
+
+    def getFrameCount(self, job):
+        try:
+            hh, mm, ss, ms = re.findall('\d+', job.duration)
+            job.frameCount = round(float(((int(hh) * 60 * 60) + (int(mm) * 60) + int(ss)) * job.fps + (int(ms) * 10 / (1000/job.fps))))
+        except Exception:
+            print('not a proper duration')
 
     def scanAssets(self, items):
         #print("scanning")
@@ -469,7 +489,24 @@ class JobScanner(QtCore.QThread):
                     else:
                         job.alpha = True
 
+                    fps = re.findall('(\d+.\d+ fps)|(\d+ fps)', err)
+                    if fps:
+                        for entry in fps[0]:
+                            if entry:
+                                try:
+                                    job.fps = float(entry.split(' ')[0])
+                                    break
+                                except Exception:
+                                    print('FPS count not a float')
+
                     job.duration = re.findall('(\Duration: \S+),', err)[0].split(' ')[1]
+
+                    if job.fps and job.duration != 'NA':
+                        self.getFrameCount(job)
+
+                    if job.frameCount:
+                        job.duration = self.getDuration(job)
+
                     self.new_signal2.emit(job, 6, job.duration)
 
                     job.resolution = re.findall(', (\d+x\d+)', err)[0]
@@ -539,25 +576,77 @@ class JobScanner(QtCore.QThread):
 
         self.new_signal.emit(folder)
 
-    def processJobs(self):
-        for still in self.allStills:
-            still.outFilename.setEnabled(0)
-            still.format.setEnabled(0)
-            still.ingest.setEnabled(0)
+    def removeJobFromList(self, job):
+        if job in self.allStills:
+            self.allStills.remove(job)
+        elif job in self.allVideos:
+            self.allVideos.remove(job)
+        else:
+            for folder in self.allFolders:
+                if job in folder.jobs:
+                    folder.jobs.remove(job)
+                    break
 
-        for video in self.allVideos:
-            video.outFilename.setEnabled(0)
-            video.format.setEnabled(0)
-            video.ingest.setEnabled(0)
+    def processJobs(self, singleJob):
+        if singleJob:
+            if self.encoder:
+                if singleJob.format.currentText():
+                    self.removeJobFromList(singleJob)
+                    self.encoder.jobs.append(singleJob)
+                    if self.encoder.isFinished():
+                        self.encoder.run()
+            else:
+                if singleJob.format.currentText():
+                    self.removeJobFromList(singleJob)
+                    self.encoder = Encoder(singleJob)
+                    self.encoder.start()
+        else:
+            for still in self.allStills:
+                still.outFilename.setEnabled(0)
+                still.format.setEnabled(0)
+                still.ingest.setEnabled(0)
+                still.runJob.setEnabled(0)
 
-        for folder in self.allFolders:
-            for job in folder.jobs:
-                job.outFilename.setEnabled(0)
-                job.format.setEnabled(0)
-                job.ingest.setEnabled(0)
+            for video in self.allVideos:
+                video.outFilename.setEnabled(0)
+                video.format.setEnabled(0)
+                video.ingest.setEnabled(0)
+                video.runJob.setEnabled(0)
 
-        for still in self.allStills:
-            encoder = Encoder(still)
+            for folder in self.allFolders:
+                for job in folder.jobs:
+                    job.outFilename.setEnabled(0)
+                    job.format.setEnabled(0)
+                    job.ingest.setEnabled(0)
+                    job.runJob.setEnabled(0)
+
+            for job in self.allStills + self.allVideos:
+                if self.encoder:
+                    if job.format.currentText():
+                        self.encoder.jobs.append(job)
+                        self.removeJobFromList(job)
+                        if self.encoder.isFinished():
+                            self.encoder.run()
+                else:
+                    if job.format.currentText():
+                        self.removeJobFromList(job)
+                        self.encoder = Encoder(job)
+                        self.encoder.start()
+
+            for folder in self.allFolders:
+                for job in folder.jobs:
+                    print(job)
+                    if self.encoder:
+                        if job.format.currentText():
+                            self.encoder.jobs.append(job)
+                            self.removeJobFromList(job)
+                            if self.encoder.isFinished():
+                                self.encoder.run()
+                    else:
+                        if job.format.currentText():
+                            self.removeJobFromList(job)
+                            self.encoder = Encoder(job)
+                            self.encoder.start()
 
 class Job(object):
     jobs = []

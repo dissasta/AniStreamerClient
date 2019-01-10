@@ -51,12 +51,13 @@ class JobHandlerWidget(QWidget):
         self.tree.setColumnWidth(7, 78)
         self.tree.setColumnWidth(8, 40)
         self.tree.setColumnWidth(9, 130)
-        self.tree.setColumnWidth(10, 228)
+        self.tree.setColumnWidth(10, 210)
         self.tree.setColumnWidth(11, 32)
         for column in range(2,12):
             self.tree.header().setSectionResizeMode(column, QtWidgets.QHeaderView.Fixed)
         self.setWindowIcon(QtGui.QIcon('import.png'))
         self.createGoButton()
+        self.tree.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         self.show()
 
     def scanJobs(self, assets):
@@ -64,6 +65,7 @@ class JobHandlerWidget(QWidget):
         self.jobHandlerThread.new_signal.connect(self.createEntry)
         self.jobHandlerThread.new_signal2.connect(self.updateEntry)
         self.jobHandlerThread.jobsReadySignal.connect(self.updateJobsReady)
+        self.jobHandlerThread.progressBar.connect(self.progressBarUpdate)
         self.jobHandlerThread.start()
 
     def createEntry(self, o):
@@ -112,10 +114,11 @@ class JobHandlerWidget(QWidget):
                 self.tree.setItemWidget(o.widgetItem, 10, o.outFilename)
 
                 o.runJob = QPushButton('RUN', self)
-                o.runJob.setStyleSheet("background-color: rgb(30, 30, 30); color: grey;")
-                o.runJob.resize(32, 20)
+                o.runJob.setStyleSheet("background-color: rgb(50, 50, 50); color: grey;")
+                o.runJob.setMinimumWidth(32)
+                o.runJob.parent = o
                 o.runJob.setEnabled(0)
-                #job.runJob.clicked.connect(self.runJob(job))
+                o.runJob.clicked.connect(self.runJob)
                 self.tree.setItemWidget(o.widgetItem, 11, o.runJob)
 
         o.widgetItem = newEntry
@@ -157,22 +160,20 @@ class JobHandlerWidget(QWidget):
                 self.tree.setItemWidget(job.widgetItem, 10, job.outFilename)
 
                 job.runJob = QPushButton('RUN', self)
-                job.runJob.setStyleSheet("background-color: rgb(30, 30, 30); color: grey;")
-                job.runJob.setFixedWidth(32)
+                job.runJob.setStyleSheet("background-color: rgb(50, 50, 50); color: grey;")
+                job.runJob.setMinimumWidth(32)
                 job.runJob.setEnabled(0)
-                #job.runJob.clicked.connect(self.runJob(job))
+                job.runJob.parent = job
+                job.runJob.clicked.connect(self.runJob)
                 self.tree.setItemWidget(job.widgetItem, 11, job.runJob)
 
         self.tree.expandAll()
         self.tree.sortByColumn(0, 0)
         self.tree.sortByColumn(2, 0)
 
-    def runJob(self, job):
-        print(job)
-
     def createGoButton(self):
         self.goButton = QPushButton('RUN ALL', self)
-        self.goButton.setStyleSheet("background-color: rgb(30, 30, 30); color: grey;")
+        self.goButton.setStyleSheet("background-color: rgb(50, 50, 50); color: grey;")
         self.goButton.move(self.width - 78, self.height - 26)
         self.goButton.setEnabled(0)
         self.goButton.clicked.connect(lambda: self.runAllJobs())
@@ -180,14 +181,26 @@ class JobHandlerWidget(QWidget):
     def updateJobsReady(self, b):
         if b:
             self.jobsReady = True
-            self.goButton.setStyleSheet("background-color: rgb(50, 50, 50);color: green;")
+            self.goButton.setStyleSheet("background-color: rgb(50, 50, 50);color: orange;")
             self.goButton.setEnabled(1)
+
+    def runJob(self):
+        job = self.sender().parent
+        job.ingest.setEnabled(0)
+        job.format.setEnabled(0)
+        job.outFilename.setEnabled(0)
+        job.runJob.setEnabled(0)
+        self.jobHandlerThread.processJobs(job)
 
     def runAllJobs(self):
         print('runrunrun')
-        self.goButton.setStyleSheet("background-color: rgb(50, 50, 50);color: red;")
+        self.goButton.setText('WORKING')
+        self.goButton.setStyleSheet("background-color: rgb(50, 50, 50);color: green;")
         self.goButton.setEnabled(0)
-        self.jobHandlerThread.processJobs()
+        self.jobHandlerThread.processJobs(None)
+
+    def progressBarUpdate(self):
+        pass
 
     def updateEntry(self, job, column, text):
         job.widgetItem.setText(column, text)
