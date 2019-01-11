@@ -27,6 +27,7 @@ class JobHandlerWidget(QWidget):
         #self.setWindowFlags(Qt.WindowStaysOnTopHint)
         self.jobsReady = False
         self.jobsDone = False
+        #self.setAcceptDrops(True)
         self.initUI()
 
     def initUI(self):
@@ -51,7 +52,7 @@ class JobHandlerWidget(QWidget):
         self.tree.setColumnWidth(7, 78)
         self.tree.setColumnWidth(8, 40)
         self.tree.setColumnWidth(9, 130)
-        self.tree.setColumnWidth(10, 210)
+        self.tree.setColumnWidth(10, 186)
         self.tree.setColumnWidth(11, 32)
         for column in range(2,12):
             self.tree.header().setSectionResizeMode(column, QtWidgets.QHeaderView.Fixed)
@@ -111,6 +112,7 @@ class JobHandlerWidget(QWidget):
 
                 o.outFilename = QLineEdit()
                 o.outFilename.setEnabled(0)
+                o.outFilename.editingFinished.connect(o.toggleRunJobButton)
                 self.tree.setItemWidget(o.widgetItem, 10, o.outFilename)
 
                 o.runJob = QPushButton('RUN', self)
@@ -157,6 +159,7 @@ class JobHandlerWidget(QWidget):
 
                 job.outFilename = QLineEdit()
                 job.outFilename.setEnabled(0)
+                job.outFilename.editingFinished.connect(job.toggleRunJobButton)
                 self.tree.setItemWidget(job.widgetItem, 10, job.outFilename)
 
                 job.runJob = QPushButton('RUN', self)
@@ -181,23 +184,18 @@ class JobHandlerWidget(QWidget):
     def updateJobsReady(self, b):
         if b:
             self.jobsReady = True
-            self.goButton.setStyleSheet("background-color: rgb(50, 50, 50);color: orange;")
+            self.goButton.setStyleSheet("background-color: rgb(50, 50, 50);color: green;")
             self.goButton.setEnabled(1)
 
     def runJob(self):
         job = self.sender().parent
-        job.ingest.setEnabled(0)
-        job.format.setEnabled(0)
-        job.outFilename.setEnabled(0)
-        job.runJob.setEnabled(0)
-        self.jobHandlerThread.processJobs(job)
+        self.jobHandlerThread.processJob(job)
 
     def runAllJobs(self):
         print('runrunrun')
-        self.goButton.setText('WORKING')
-        self.goButton.setStyleSheet("background-color: rgb(50, 50, 50);color: green;")
-        self.goButton.setEnabled(0)
-        self.jobHandlerThread.processJobs(None)
+        #self.goButton.setText('WORKING')
+        #self.goButton.setStyleSheet("background-color: rgb(50, 50, 50);color: green;")
+        self.jobHandlerThread.processAll(self.goButton)
 
     def progressBarUpdate(self):
         pass
@@ -208,6 +206,17 @@ class JobHandlerWidget(QWidget):
     def closeEvent(self, e):
         e.ignore()
         self.destroy()
+
+    def dragEnterEvent(self, e):
+        if e.mimeData().hasUrls() and ffmpegPresent:
+            e.accept()
+        else:
+            e.ignore()
+
+    def dropEvent(self, e):
+        assets = [u.toLocalFile() for u in e.mimeData().urls()]
+        for asset in assets:
+            self.jobHandlerThread.assets.append(asset)
 
 class DropZone(QWidget):
     def __init__(self, mainApp):

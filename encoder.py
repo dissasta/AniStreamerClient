@@ -12,6 +12,9 @@ class Encoder(QtCore.QThread):
         while self.jobs:
             time.sleep(1)
             job = self.jobs.pop(0)
+            print(job, job.outFilename.text())
             job.runJob.setStyleSheet("background-color: rgb(50, 50, 50);color: green;")
-
+            job.runJob.setText('WORKING')
+            time.sleep(2)
+            job.runJob.setText('DONE')
         print('encoder done')

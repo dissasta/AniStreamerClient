@@ -38,9 +38,9 @@ class Asset(object):
             self.fillFormats()
 
     def toggleRunJobButton(self):
-        if self.format.currentText():
+        if self.format.currentText() and self.outFilename.text():
             self.runJob.setEnabled(1)
-            self.runJob.setStyleSheet("background-color: rgb(50, 50, 50); color: orange;")
+            self.runJob.setStyleSheet("background-color: rgb(50, 50, 50); color: gold;")
         else:
             self.runJob.setEnabled(0)
             self.runJob.setStyleSheet("background-color: rgb(50, 50, 50); color: grey;")
@@ -587,66 +587,47 @@ class JobScanner(QtCore.QThread):
                     folder.jobs.remove(job)
                     break
 
-    def processJobs(self, singleJob):
-        if singleJob:
-            if self.encoder:
-                if singleJob.format.currentText():
-                    self.removeJobFromList(singleJob)
-                    self.encoder.jobs.append(singleJob)
-                    if self.encoder.isFinished():
-                        self.encoder.run()
-            else:
-                if singleJob.format.currentText():
-                    self.removeJobFromList(singleJob)
-                    self.encoder = Encoder(singleJob)
+    def processJob(self, job):
+        workedOn = False
+        if self.encoder:
+            if job.runJob.isEnabled():
+                self.encoder.jobs.append(job)
+                workedOn = True
+                if self.encoder.isFinished():
                     self.encoder.start()
         else:
-            for still in self.allStills:
-                still.outFilename.setEnabled(0)
-                still.format.setEnabled(0)
-                still.ingest.setEnabled(0)
-                still.runJob.setEnabled(0)
+            if job.runJob.isEnabled():
+                self.encoder = Encoder(job)
+                self.encoder.start()
+                workedOn = True
 
-            for video in self.allVideos:
-                video.outFilename.setEnabled(0)
-                video.format.setEnabled(0)
-                video.ingest.setEnabled(0)
-                video.runJob.setEnabled(0)
+        if workedOn:
+            job.ingest.setEnabled(0)
+            job.format.setEnabled(0)
+            job.outFilename.setEnabled(0)
+            job.runJob.setEnabled(0)
+            job.runJob.setStyleSheet("background-color: rgb(50, 50, 50);color: orange;")
+            job.runJob.setText('QUEUED')
+            return True
 
-            for folder in self.allFolders:
-                for job in folder.jobs:
-                    job.outFilename.setEnabled(0)
-                    job.format.setEnabled(0)
-                    job.ingest.setEnabled(0)
-                    job.runJob.setEnabled(0)
+    def processAll(self, button):
+        button.setEnabled(0)
+        toRemove = []
+        for job in self.allStills + self.allVideos:
+            removable = self.processJob(job)
+            if removable:
+                toRemove.append(job)
 
-            for job in self.allStills + self.allVideos:
-                if self.encoder:
-                    if job.format.currentText():
-                        self.encoder.jobs.append(job)
-                        self.removeJobFromList(job)
-                        if self.encoder.isFinished():
-                            self.encoder.run()
-                else:
-                    if job.format.currentText():
-                        self.removeJobFromList(job)
-                        self.encoder = Encoder(job)
-                        self.encoder.start()
+        for folder in self.allFolders:
+            for job in folder.jobs:
+                removable = self.processJob(job)
+                if removable:
+                    toRemove.append(job)
 
-            for folder in self.allFolders:
-                for job in folder.jobs:
-                    print(job)
-                    if self.encoder:
-                        if job.format.currentText():
-                            self.encoder.jobs.append(job)
-                            self.removeJobFromList(job)
-                            if self.encoder.isFinished():
-                                self.encoder.run()
-                    else:
-                        if job.format.currentText():
-                            self.removeJobFromList(job)
-                            self.encoder = Encoder(job)
-                            self.encoder.start()
+        for job in toRemove:
+            self.removeJobFromList(job)
+        button.setEnabled(1)
+
 
 class Job(object):
     jobs = []
