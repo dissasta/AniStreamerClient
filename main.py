@@ -6,13 +6,14 @@ from PyQt5.QtCore import Qt, QTimer, QSize, QRect, QRectF
 from config import Config, toolCheck
 from comms import *
 from jobhandler import *
+from cropper import *
 
 ffmpegPresent = False
 serverIP = '192.168.0.33'
 serverPort = 6666
 buffSize = 1024
-tempDir = 'D:\\WORKSPACE\\TEMP'
-outputDir = 'D:\\WORKSPACE\\OUTPUT'
+tempDir = 'e:\\Tools\\TEMP'
+outputDir = 'e:\\Tools\\OUTPUT'
 extendAni = True
 aniQFactor = 1
 pngCompressionLevel = 50
@@ -308,6 +309,8 @@ class Client(QMainWindow):
         #self.makeConnection()
         self.senderThread = Sender(self.socket)
         self.senderThread.start()
+        self.cropper = Cropper()
+        self.cropper.start()
         self.show()
 
     def initUI(self):
