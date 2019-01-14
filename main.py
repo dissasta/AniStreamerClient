@@ -11,11 +11,17 @@ ffmpegPresent = False
 serverIP = '192.168.0.33'
 serverPort = 6666
 buffSize = 1024
+tempDir = 'D:\\WORKSPACE\\TEMP'
+outputDir = 'D:\\WORKSPACE\\OUTPUT'
+extendAni = True
+aniQFactor = 1
+pngCompressionLevel = 50
 
 """
 TODO:
 -7zip implementation
 """
+
 class JobHandlerWidget(QWidget):
     def __init__(self):
         QWidget.__init__(self)

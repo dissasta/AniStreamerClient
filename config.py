@@ -8,8 +8,6 @@ def toolCheck(exeFile):
     return find_executable(exeFile) is not None
 
 class Config(QMainWindow):
-    tempDir = 'D:\\WORKSPACE\\TEMP'
-    outputDir = 'De:\\WORKSPACE\\TEMP'
     def __init__(self, mainApp):
         super().__init__()
         self.title = 'Config'
@@ -18,9 +16,6 @@ class Config(QMainWindow):
         self.width = 300
         self.height = 500
         self.userName = None
-        self.serverIP = '129.228.74.105'
-        self.serverPort = '666'
-        self.outputFolder = ''
         self.initUI()
 
     def initUI(self):

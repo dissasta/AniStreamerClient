@@ -1,6 +1,6 @@
 import random, re, zipfile, subprocess, os, time, shutil, rarfile, tarfile
 from config import toolCheck
-from config import *
+from main import *
 from encoder import *
 from string import ascii_uppercase, digits
 from PyQt5 import QtCore
@@ -27,11 +27,12 @@ class Asset(object):
         self.resolution = None
         self.ingest = False
         if os.path.isfile(path):
-            self.ext = os.path.basename(path).split('.')[-1]
+            self.ext = '.' + os.path.basename(path).split('.')[-1]
         self.valid = False
         self.outFilename = None
         self.targetPath = None
         self.runJob = None
+        self.failed = False
 
     def btnstate(self):
         if self.ingest:
@@ -113,8 +114,8 @@ class Video(Asset):
         self.formats = []
         self.ffmpegTags = ['matroska', 'webm', 'qtrle', 'prores']
         self.format = None
-        self.localFormatsAlpha = ['', 'ANI', 'MOV', 'PNG SEQUENCE', 'TGA SEQUENCE', 'PNG SEQUENCE 2xFPS']
-        self.localFormatsNoAlpha = ['', 'PNG SEQUENCE', 'TGA SEQUENCE', 'PNG SEQUENCE 2xFPS']
+        self.localFormatsAlpha = ['', 'ANI', 'MOV', 'CH5-MXF', 'PNG SEQUENCE', 'TGA SEQUENCE', 'PNG SEQUENCE 2xFPS']
+        self.localFormatsNoAlpha = ['', 'CH5-MXF', 'PNG SEQUENCE', 'TGA SEQUENCE', 'PNG SEQUENCE 2xFPS']
         self.ingestFormats = ['', 'ANI', 'MOV']
 
 class Folder(Asset):
@@ -165,7 +166,7 @@ class Archive(Asset):
     def __init__(self, path):
         Asset.__init__(self, path)
         self.tempFolderName = self.generateTempArchiveFolder()
-        self.tempFolderPath = os.path.join(Config.tempDir, self.tempFolderName)
+        self.tempFolderPath = os.path.join(tempDir, self.tempFolderName)
         self.fileCount = 0
         self.counter = 0
         self.unpacked = False
@@ -289,8 +290,8 @@ class JobScanner(QtCore.QThread):
                     print(job.outFilename.text())
 
     def createTempFolder(self):
-        if not os.path.exists(Config.tempDir):
-            os.mkdir(Config.tempDir)
+        if not os.path.exists(tempDir):
+            os.mkdir(tempDir)
 
     def scanStructure(self, asset):
         #scan individual folders internal structure and extract separate folder paths
@@ -554,7 +555,8 @@ class JobScanner(QtCore.QThread):
             for prefix in prefixesFound:
                 matrix = prefix[0][:prefix[1]]
                 list = [file for file in folder.content if file.startswith(matrix)]
-                newMatrix = (matrix + '%d0' + prefix[0][prefix[1]:])
+                number = re.findall('(\d+)', prefix[0])[-1]
+                newMatrix = (matrix + '%' + str(number).zfill(2) + 'd' + prefix[0][prefix[1] + len(number):])
                 gaps = False
                 if len(list) >= 2:
                     for i in range(1, len(list)):
