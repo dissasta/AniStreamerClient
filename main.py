@@ -12,11 +12,12 @@ ffmpegPresent = False
 serverIP = '192.168.0.33'
 serverPort = 6666
 buffSize = 1024
-tempDir = 'e:\\Tools\\TEMP'
-outputDir = 'e:\\Tools\\OUTPUT'
+tempDir = 'd:\\WORKSPACE\TEMP'
+outputDir = 'd:\\WORKSPACE\OUTPUT'
 extendAni = True
 aniQFactor = 1
-pngCompressionLevel = 50
+pngCompressionLevel = 100
+movCompressionLevel = 2000
 
 """
 TODO:
@@ -80,7 +81,7 @@ class JobHandlerWidget(QWidget):
         if self.jobHandlerThread.allArchives:
             for archive in self.jobHandlerThread.allArchives:
                 if archive.tempFolderName in o.path:
-                    tempPath = os.path.join(Config.tempDir, archive.tempFolderName)
+                    tempPath = os.path.join(tempDir, archive.tempFolderName)
                     tempPath = tempPath.replace('/', '\\')
                     displayPath = o.path.replace(tempPath, "")
                     if not displayPath:
@@ -309,8 +310,6 @@ class Client(QMainWindow):
         #self.makeConnection()
         self.senderThread = Sender(self.socket)
         self.senderThread.start()
-        self.cropper = Cropper()
-        self.cropper.start()
         self.show()
 
     def initUI(self):

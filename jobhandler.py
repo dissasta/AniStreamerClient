@@ -102,7 +102,7 @@ class Asset(object):
             elif ('_out' in parentFolder or ' out' in parentFolder) and (' out' in filename or '_out' in filename):
                 outputFile = outputFile
 
-        return outputFile.rstrip()
+        return outputFile.rstrip().lstrip()
 
 class Video(Asset):
     def __init__(self, path):
@@ -114,6 +114,7 @@ class Video(Asset):
         self.formats = []
         self.ffmpegTags = ['matroska', 'webm', 'qtrle', 'prores']
         self.format = None
+        self.isANI = False
         self.localFormatsAlpha = ['', 'ANI', 'MOV', 'CH5-MXF', 'PNG SEQUENCE', 'TGA SEQUENCE', 'PNG SEQUENCE 2xFPS']
         self.localFormatsNoAlpha = ['', 'CH5-MXF', 'PNG SEQUENCE', 'TGA SEQUENCE', 'PNG SEQUENCE 2xFPS']
         self.ingestFormats = ['', 'ANI', 'MOV']
@@ -141,7 +142,7 @@ class Sequence(Asset):
         elif 'png' in matrix.lower():
             self.ffmpegName = 'png'
         self.format = None
-        self.localFormatsAlpha = ['', 'ANI', 'MOV', 'PNG 2xFPS']
+        self.localFormatsAlpha = ['', 'ANI', 'MOV', 'PNG SEQUENCE 2xFPS']
         self.localFormatsNoAlpha = []
         self.ingestFormats = ['', 'ANI', 'MOV']
 
@@ -180,7 +181,8 @@ class Archive(Asset):
         signal.emit(self, 7, str(percentage) + '%')
 
     def unpack(self, tempFolder, signal):
-        if self.ext.lower() == 'zip':
+        if self.ext.lower() == '.zip':
+            print('here')
             try:
                 with zipfile.ZipFile(self.path, 'r') as zip:
                     self.fileCount = len(zip.infolist())
@@ -195,7 +197,7 @@ class Archive(Asset):
             except Exception:
                 print('Bad ZIP File')
 
-        elif self.ext.lower() == 'rar':
+        elif self.ext.lower() == '.rar':
             try:
                 with rarfile.RarFile(self.path, 'r') as rar:
                     content = [name for name in rar.namelist() if not '_MACOSX' in name]
@@ -210,7 +212,7 @@ class Archive(Asset):
             except Exception:
                 print('Bad RAR File')
 
-        elif self.ext.lower() == 'tar':
+        elif self.ext.lower() == '.tar':
             try:
                 with tarfile.TarFile(self.path, 'r') as tar:
                     content = [name for name in tar.getnames() if not '_MACOSX' in name]
@@ -225,7 +227,7 @@ class Archive(Asset):
             except Exception:
                 print('Bad TAR File')
 
-        elif self.ext.lower() == '7z':
+        elif self.ext.lower() == '.7z':
             try:
                 with lzma.open(self.path, 'r') as szip:
                     content = [name for name in szip.getnames() if not '_MACOSX' in name]
@@ -307,7 +309,6 @@ class JobScanner(QtCore.QThread):
                             self.newArchives.append(Archive(os.path.join(entry[0], file)))
                         #if any(file.lower().endswith(x) for x in videoAssetTypes):
                         #    self.newVideos.append(Video(os.path.join(entry[0], file)))
-
         #scan individual files for import
         elif os.path.isfile(asset):
             asset = asset.replace('/', '\\')
@@ -389,6 +390,8 @@ class JobScanner(QtCore.QThread):
                     self.new_signal2.emit(job, 4, 'NO')
 
                 self.new_signal2.emit(job, 6, self.getDuration(job))
+                job.firstFrame = re.findall('(\d+)\.', job.content[0])[-1]
+
                 counter = 0
                 for i in job.content:
                     file = os.path.join(job.path, i)
@@ -454,6 +457,7 @@ class JobScanner(QtCore.QThread):
                         job.validFormat = True
                         job.isTGA = True
                         job.ingestFormats.insert(2, 'PNG')
+
                     elif job.basename.split('.')[-1].lower() == 'png' and "Video: png" in err:
                         job.validFormat = True
                         job.isPNG = True
@@ -507,6 +511,11 @@ class JobScanner(QtCore.QThread):
 
                     if job.frameCount:
                         job.duration = self.getDuration(job)
+
+                    if job.ext == '.ani' and aniCondition:
+                        job.isANI = True
+                        job.ingestFormats[1] = 'PASS-THROUGH'
+                        job.localFormatsAlpha.remove('ANI')
 
                     self.new_signal2.emit(job, 6, job.duration)
 
