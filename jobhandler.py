@@ -25,6 +25,7 @@ class Asset(object):
         self.type = ''
         self.alpha = False
         self.resolution = None
+        self.crop = None
         self.ingest = False
         if os.path.isfile(path):
             self.ext = '.' + os.path.basename(path).split('.')[-1]
@@ -33,6 +34,8 @@ class Asset(object):
         self.targetPath = None
         self.runJob = None
         self.failed = False
+        self.fps = None
+        self.ingestable = False
 
     def btnstate(self):
         if self.ingest:
@@ -135,6 +138,7 @@ class Sequence(Asset):
         self.content = content
         self.matrix = matrix
         self.toMov = False
+        self.isTGA = False
         self.validFormat = False
         self.gaps = gaps
         if 'tga' in matrix.lower():
@@ -245,7 +249,7 @@ class Archive(Asset):
 class JobScanner(QtCore.QThread):
     new_signal = QtCore.pyqtSignal(object)
     new_signal2 = QtCore.pyqtSignal(object, int, str)
-    jobsReadySignal = QtCore.pyqtSignal(int)
+    #jobsReadySignal = QtCore.pyqtSignal(int)
     progressBar = QtCore.pyqtSignal(str, int, int, bool)
     def __init__(self, assets):
         QtCore.QThread.__init__(self)
@@ -284,7 +288,7 @@ class JobScanner(QtCore.QThread):
             self.scanAssets(self.allStills)
             self.scanAssets(self.allVideos)
             self.ready = True
-            self.jobsReadySignal.emit(1)
+            #self.jobsReadySignal.emit(1)
             break
             #time.sleep(5)
             for i in self.allFolders:
@@ -403,6 +407,11 @@ class JobScanner(QtCore.QThread):
                         job.resolution = re.findall('\d+x\d+', err)[0]
                         self.new_signal2.emit(job, 5, job.resolution)
 
+                    if not job.isTGA:
+                        if job.content[0].split('.')[-1].lower() == 'tga' and "Video: targa" in err:
+                            job.isTGA = True
+                            print('mamytarge')
+
                     alpha = any(x in err for x in alphaTags)
                     if not alpha:
                         job.alpha = False
@@ -428,6 +437,7 @@ class JobScanner(QtCore.QThread):
                     if job.validFormat:
                         self.new_signal2.emit(job, 7, 'VALID')
                         job.valid = True
+                        job.ingestable = True
                         if job.gaps:
                             job.valid = False
                             self.new_signal2.emit(job, 7, 'INVALID')
@@ -472,6 +482,7 @@ class JobScanner(QtCore.QThread):
                         if job.validFormat:
                             self.new_signal2.emit(job, 7, 'VALID')
                             job.valid = True
+                            job.ingestable = True
                         else:
                             self.new_signal2.emit(job, 7, 'INVALID FILE FORMAT')
                     else:
@@ -487,6 +498,7 @@ class JobScanner(QtCore.QThread):
                 err = err.decode('utf-8')
                 aniCondition = re.findall('Stream #0:0\[\S+\]: Video', err) and re.findall('Stream #0:1\[\S+\]: Video', err)
                 if re.findall('Stream #0:0\(\S+\): Video', err) or re.findall('Stream #0:0: Video', err) or aniCondition:
+                    job.valid = True
                     alpha = any(x in err for x in alphaTags)
 
                     if not alpha and not aniCondition:
@@ -526,7 +538,7 @@ class JobScanner(QtCore.QThread):
                     if job.alpha:
                         self.new_signal2.emit(job, 7, 'VALID')
                         self.new_signal2.emit(job, 3, 'PRESENT')
-                        job.valid = True
+                        job.ingestable = True
                     else:
                         self.new_signal2.emit(job, 3, 'MISSING')
                         self.new_signal2.emit(job, 7, 'LOCAL ONLY')
@@ -534,12 +546,15 @@ class JobScanner(QtCore.QThread):
                 else:
                     self.new_signal2.emit(job, 7, 'BAD INPUT')
 
-            job.fillFormats()
-            job.outFilename.setText(job.genOutFilename())
-            job.outFilename.setCursorPosition(0)
-            job.outFilename.setEnabled(1)
-
             if job.valid:
+                if not job.type == 'Video':
+                    job.edit.setEnabled(1)
+                job.fillFormats()
+                job.outFilename.setText(job.genOutFilename())
+                job.outFilename.setCursorPosition(0)
+                job.outFilename.setEnabled(1)
+
+            if job.ingestable:
                 job.ingest.setEnabled(1)
                 #print(job.path)
 
@@ -621,8 +636,7 @@ class JobScanner(QtCore.QThread):
             job.runJob.setText('QUEUED')
             return True
 
-    def processAll(self, button):
-        button.setEnabled(0)
+    def processAll(self):
         toRemove = []
         for job in self.allStills + self.allVideos:
             removable = self.processJob(job)
@@ -637,7 +651,6 @@ class JobScanner(QtCore.QThread):
 
         for job in toRemove:
             self.removeJobFromList(job)
-        button.setEnabled(1)
 
 
 class Job(object):

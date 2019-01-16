@@ -30,11 +30,12 @@ class JobHandlerWidget(QWidget):
         self.title = 'JOB IMPORTER'
         self.left = 400
         self.top = 200
-        self.width = 1300
+        self.width = 1340
         self.height = 800
         #self.setWindowFlags(Qt.WindowStaysOnTopHint)
         self.jobsReady = False
         self.jobsDone = False
+        self.cropper = None
         #self.setAcceptDrops(True)
         self.initUI()
 
@@ -43,6 +44,7 @@ class JobHandlerWidget(QWidget):
         self.setGeometry(self.left, self.top, self.width, self.height)
         self.setMaximumSize(self.width, self.height)
         self.setAutoFillBackground(True)
+        self.createGoButton()
         self.tree = QTreeWidget(self)
         self.tree.setAlternatingRowColors(True)
         self.tree.setSortingEnabled(True)
@@ -51,7 +53,7 @@ class JobHandlerWidget(QWidget):
         self.tree.setStyleSheet("color: grey; background-color: rgb(60, 63, 65); alternate-background-color: rgb(66, 67, 69);")
         self.tree.setFocusPolicy(Qt.NoFocus)
         self.tree.setColumnCount(11)
-        self.tree.setHeaderLabels(["Path", "IN Filename", "Type", "Alpha", "Gaps", "Resolution", "Duration", "Status", "Ingest", "Format", "OUT Filename", ""])
+        self.tree.setHeaderLabels(["Path", "IN Filename", "Type", "Alpha", "Gaps", "Resolution", "Duration", "Status", "Ingest", "Crop", "Format", "OUT Filename", ""])
         self.tree.setColumnWidth(0, 300)
         self.tree.setColumnWidth(1, 150)
         for column in range(2,7):
@@ -59,13 +61,13 @@ class JobHandlerWidget(QWidget):
             self.tree.header().setSectionResizeMode(column, QtWidgets.QHeaderView.Fixed)
         self.tree.setColumnWidth(7, 78)
         self.tree.setColumnWidth(8, 40)
-        self.tree.setColumnWidth(9, 130)
-        self.tree.setColumnWidth(10, 186)
-        self.tree.setColumnWidth(11, 32)
-        for column in range(2,12):
+        self.tree.setColumnWidth(9, 40)
+        self.tree.setColumnWidth(10, 130)
+        self.tree.setColumnWidth(11, 186)
+        self.tree.setColumnWidth(12, 32)
+        for column in range(2,13):
             self.tree.header().setSectionResizeMode(column, QtWidgets.QHeaderView.Fixed)
         self.setWindowIcon(QtGui.QIcon('import.png'))
-        self.createGoButton()
         self.tree.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         self.show()
 
@@ -73,7 +75,7 @@ class JobHandlerWidget(QWidget):
         self.jobHandlerThread = JobScanner(assets)
         self.jobHandlerThread.new_signal.connect(self.createEntry)
         self.jobHandlerThread.new_signal2.connect(self.updateEntry)
-        self.jobHandlerThread.jobsReadySignal.connect(self.updateJobsReady)
+        #self.jobHandlerThread.jobsReadySignal.connect(self.updateJobsReady)
         self.jobHandlerThread.progressBar.connect(self.progressBarUpdate)
         self.jobHandlerThread.start()
 
@@ -114,14 +116,22 @@ class JobHandlerWidget(QWidget):
                 o.ingest.setEnabled(0)
                 self.tree.setItemWidget(o.widgetItem, 8, ingestCheckboxlabel)
 
+                o.edit = QPushButton('EDIT', self)
+                o.edit.setStyleSheet("background-color: rgb(50, 50, 50); color: grey;")
+                o.edit.parent = o
+                o.edit.setMinimumWidth(32)
+                o.edit.setEnabled(0)
+                o.edit.clicked.connect(self.edit)
+                self.tree.setItemWidget(o.widgetItem, 9, o.edit)
+
                 o.format = QComboBox()
                 o.format.activated.connect(o.toggleRunJobButton)
-                self.tree.setItemWidget(o.widgetItem, 9, o.format)
+                self.tree.setItemWidget(o.widgetItem, 10, o.format)
 
                 o.outFilename = QLineEdit()
                 o.outFilename.setEnabled(0)
                 o.outFilename.editingFinished.connect(o.toggleRunJobButton)
-                self.tree.setItemWidget(o.widgetItem, 10, o.outFilename)
+                self.tree.setItemWidget(o.widgetItem, 11, o.outFilename)
 
                 o.runJob = QPushButton('RUN', self)
                 o.runJob.setStyleSheet("background-color: rgb(50, 50, 50); color: grey;")
@@ -129,7 +139,7 @@ class JobHandlerWidget(QWidget):
                 o.runJob.parent = o
                 o.runJob.setEnabled(0)
                 o.runJob.clicked.connect(self.runJob)
-                self.tree.setItemWidget(o.widgetItem, 11, o.runJob)
+                self.tree.setItemWidget(o.widgetItem, 12, o.runJob)
 
         o.widgetItem = newEntry
         o.widgetRow = self.tree.topLevelItemCount() - 1
@@ -161,14 +171,22 @@ class JobHandlerWidget(QWidget):
 
                 self.tree.setItemWidget(job.widgetItem, 8, ingestCheckboxlabel)
 
+                job.edit = QPushButton('EDIT', self)
+                job.edit.setStyleSheet("background-color: rgb(50, 50, 50); color: grey;")
+                job.edit.parent = job
+                job.edit.setMinimumWidth(32)
+                job.edit.setEnabled(0)
+                job.edit.clicked.connect(self.edit)
+                self.tree.setItemWidget(job.widgetItem, 9, job.edit)
+
                 job.format = QComboBox()
                 job.format.activated.connect(job.toggleRunJobButton)
-                self.tree.setItemWidget(job.widgetItem, 9, job.format)
+                self.tree.setItemWidget(job.widgetItem, 10, job.format)
 
                 job.outFilename = QLineEdit()
                 job.outFilename.setEnabled(0)
                 job.outFilename.editingFinished.connect(job.toggleRunJobButton)
-                self.tree.setItemWidget(job.widgetItem, 10, job.outFilename)
+                self.tree.setItemWidget(job.widgetItem, 11, job.outFilename)
 
                 job.runJob = QPushButton('RUN', self)
                 job.runJob.setStyleSheet("background-color: rgb(50, 50, 50); color: grey;")
@@ -176,7 +194,7 @@ class JobHandlerWidget(QWidget):
                 job.runJob.setEnabled(0)
                 job.runJob.parent = job
                 job.runJob.clicked.connect(self.runJob)
-                self.tree.setItemWidget(job.widgetItem, 11, job.runJob)
+                self.tree.setItemWidget(job.widgetItem, 12, job.runJob)
 
         self.tree.expandAll()
         self.tree.sortByColumn(0, 0)
@@ -184,9 +202,9 @@ class JobHandlerWidget(QWidget):
 
     def createGoButton(self):
         self.goButton = QPushButton('RUN ALL', self)
-        self.goButton.setStyleSheet("background-color: rgb(50, 50, 50); color: grey;")
+        self.goButton.setStyleSheet("background-color: rgb(50, 50, 50); color: green;")
         self.goButton.move(self.width - 78, self.height - 26)
-        self.goButton.setEnabled(0)
+        self.goButton.setEnabled(1)
         self.goButton.clicked.connect(lambda: self.runAllJobs())
 
     def updateJobsReady(self, b):
@@ -199,11 +217,16 @@ class JobHandlerWidget(QWidget):
         job = self.sender().parent
         self.jobHandlerThread.processJob(job)
 
+    def edit(self):
+        job = self.sender().parent
+        self.cropper = Cropper(job)
+
+
     def runAllJobs(self):
         print('runrunrun')
         #self.goButton.setText('WORKING')
         #self.goButton.setStyleSheet("background-color: rgb(50, 50, 50);color: green;")
-        self.jobHandlerThread.processAll(self.goButton)
+        self.jobHandlerThread.processAll()
 
     def progressBarUpdate(self):
         pass

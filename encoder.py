@@ -141,18 +141,21 @@ class Encoder(QtCore.QThread):
                         self.jobFailed(job)
 
             if not job.failed:
-                if job.ingest.isChecked():
-                    shutil.move(target, os.path.join(outputDir, os.path.basename(target)))
-                    self.jobDone(job)
-                else:
-                    dest = os.path.join(outputDir, os.path.basename(target))
-                    if os.path.exists(dest):
-                        if os.path.isdir(dest):
-                            shutil.rmtree(dest)
-                        elif os.path.isfile(dest):
-                            os.remove(dest)
-                    shutil.move(target, dest)
-                    self.jobDone(job)
+                try:
+                    if job.ingest.isChecked():
+                        shutil.move(target, os.path.join(outputDir, os.path.basename(target)))
+                        self.jobDone(job)
+                    else:
+                        dest = os.path.join(outputDir, os.path.basename(target))
+                        if os.path.exists(dest):
+                            if os.path.isdir(dest):
+                                shutil.rmtree(dest)
+                            elif os.path.isfile(dest):
+                                os.remove(dest)
+                        shutil.move(target, dest)
+                        self.jobDone(job)
+                except Exception:
+                    print('couldn\'t move files')
 
             #time.sleep(1)
         print('encoder done')
