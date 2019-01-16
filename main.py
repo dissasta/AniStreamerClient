@@ -111,7 +111,7 @@ class JobHandlerWidget(QWidget):
                 ingestCheckboxlabel.setStyleSheet("background-color: rgba(0,0,0,0%)")
                 o.ingest = QCheckBox(ingestCheckboxlabel)
                 o.ingest.setMaximumSize(14, 14)
-                o.ingest.move(12, 3)
+                o.ingest.move(12, 4)
                 o.ingest.toggled.connect(o.btnstate)
                 o.ingest.setEnabled(0)
                 self.tree.setItemWidget(o.widgetItem, 8, ingestCheckboxlabel)
@@ -165,7 +165,7 @@ class JobHandlerWidget(QWidget):
                 ingestCheckboxlabel.setStyleSheet("background-color: rgba(0,0,0,0%)")
                 job.ingest = QCheckBox(ingestCheckboxlabel)
                 job.ingest.setMaximumSize(14, 14)
-                job.ingest.move(12, 3)
+                job.ingest.move(12, 4)
                 job.ingest.toggled.connect(job.btnstate)
                 job.ingest.setEnabled(0)
 
