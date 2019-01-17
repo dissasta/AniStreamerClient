@@ -1,6 +1,6 @@
 from main import *
 from jobhandler import *
-from PyQt5.QtWidgets import QLabel, QMainWindow, QApplication, QWidget, QVBoxLayout, QScrollArea, QSlider
+from PyQt5.QtWidgets import QLabel, QMainWindow, QApplication, QWidget, QVBoxLayout, QHBoxLayout, QScrollArea, QSlider
 from PyQt5.QtGui import QPixmap, QMouseEvent, QImage
 import os, time
 from PyQt5 import QtCore
@@ -8,17 +8,59 @@ from PyQt5 import QtCore
 class MyLabel(QLabel):
     def __init__(self):
         QLabel.__init__(self)
+        self.begin = QtCore.QPoint()
+        self.end = QtCore.QPoint()
+        self.crop = QLabel(self)
+        self.crop.setGeometry(0,0, 100, 100)
+        self.crop.setStyleSheet("background-color: rgb(50, 50, 50)")
+        self.cropp = (10000, 10000)
 
-    def mouseMoveEvent(self, event: QMouseEvent):
-        print(event.pos())
+    def paintEvent(self, event):
+        super(MyLabel, self).paintEvent(event)
+        qp = QtGui.QPainter(self)
+        br = QtGui.QBrush(QtGui.QColor(100, 10, 10, 40))
+        qp.setBrush(br)
+        qp.drawRect(QtCore.QRect(self.begin, self.end))
+
+    def getPos(self, event):
+        pos = [0, 0]
+        if event.pos().x() < 0:
+            pos[0] = 0
+        elif event.pos().x() > self.geometry().width():
+            pos[0] = self.geometry().width()
+        else:
+            pos[0] = event.pos().x()
+
+        if event.pos().y() < 0:
+            pos[1] = 0
+        elif event.pos().y() > self.geometry().height():
+            pos[1] = self.geometry().height()
+        else:
+            pos[1] = event.pos().y()
+
+        return pos
+
+    def mousePressEvent(self, event: QMouseEvent):
+        self.begin = event.pos()
+        self.end = event.pos()
+        #self.update()
+
+    def mouseMoveEvent(self, event):
+        self.end = event.pos()
+        self.update()
+
+    def mouseReleaseEvent(self, event):
+        self.begin = event.pos()
+        self.end = event.pos()
+        #self.update()
 
 class Cropper(QMainWindow):
     def __init__(self, job):
         QMainWindow.__init__(self)
-        self.targaLabel = 'TRUEVISION-XFILE  '
+        self.targaLabel = 'TRUEVISION-XFILE. '
         self.job = job
         self.sl = None
-        self.setWindowTitle("CROP AREA")
+        self.setWindowTitle("EDIT")
         self.setWindowIcon(QtGui.QIcon('icon.png'))
         self.setStyleSheet("background-color: rgb(50, 50, 50);")
         #self.setMaximumSize(1920,1080)
@@ -27,6 +69,10 @@ class Cropper(QMainWindow):
         self.setCentralWidget(self.centralWidget)
         self.lay = QVBoxLayout(self.centralWidget)
         self.lay.setAlignment(Qt.AlignTop)
+        self.layTop = QVBoxLayout(self.centralWidget)
+        self.layTop.setAlignment(Qt.AlignHCenter)
+        self.layBottom = QHBoxLayout(self.centralWidget)
+        self.layBottom.setAlignment(Qt.AlignHCenter)
         self.scrollArea = QScrollArea()
         self.scrollArea.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
         self.scrollArea.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
@@ -34,9 +80,11 @@ class Cropper(QMainWindow):
         self.scrollArea.setStyleSheet("background-color: rgb(60, 63, 65);")
         self.scrollArea.setObjectName("PREVIEW")
         self.scrollArea.setEnabled(True)
-        self.lay.addWidget(self.scrollArea)
         self.label = MyLabel()
         self.scrollArea.setWidget(self.label)
+        self.layTop.addWidget(self.scrollArea)
+        self.lay.addLayout(self.layTop)
+        self.lay.addLayout(self.layBottom)
 
         if self.job.type == 'Still':
             print(self.job.isTGA)
@@ -80,35 +128,46 @@ class Cropper(QMainWindow):
                 self.sl.setTickInterval(job.fps)
             else:
                 self.sl.setTickInterval(25)
-
-            self.lay.addWidget(self.sl)
+            self.layBottom.addWidget(self.sl)
             self.sl.valueChanged.connect(self.valuechange)
 
         if self.label.sizeHint().width() >= 1902:
-            self.scrollArea.setMinimumWidth(1902)
+            self.scrollArea.setFixedWidth(1902)
             self.scrollArea.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
+            self.layTop.activate()
+            self.setFixedWidth(self.lay.sizeHint().width())
         else:
-            self.scrollArea.setMinimumWidth(self.label.sizeHint().width())
+            self.scrollArea.setFixedWidth(self.label.sizeHint().width())
+            if self.label.sizeHint().width() <= 302:
+                self.setFixedWidth(320)
+            else:
+                self.layTop.activate()
+                self.setFixedWidth(self.lay.sizeHint().width())
 
         if self.label.sizeHint().height() >= 980:
-            self.scrollArea.setMinimumHeight(980)
             self.scrollArea.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAsNeeded)
+            self.scrollArea.setFixedHeight(980)
+            self.layTop.activate()
+            self.setFixedHeight(self.lay.sizeHint().height())
         else:
-            self.scrollArea.setMinimumHeight(self.label.sizeHint().height())
+            self.scrollArea.setFixedHeight(self.label.sizeHint().height())
+            self.layTop.activate()
+            self.setFixedHeight(self.lay.sizeHint().height())
 
         if self.sl:
-            self.sl.setMaximumWidth(self.lay.sizeHint().width()/2)
-            self.sl.setMinimumWidth(50)
+            self.sl.setFixedWidth(self.geometry().width()/2)
 
-        self.setFixedSize(self.lay.sizeHint())
+        #self.setFixedSize(self.lay.sizeHint())
+        print('mainlayout', self.label.cropp)
+
         self.show()
-
+        print('mainlayout', self.lay.sizeHint())
+        print('toplayout', self.layTop.sizeHint())
+        print('bottomlayout', self.layBottom.sizeHint())
         print('scrollbox', self.scrollArea.frameGeometry())
         print('image', pixmap.width(), pixmap.height())
-        #print('slider', self.sl.frameGeometry())
+        print('label', self.label.sizeHint())
         print('window', self.geometry())
-        print('layout', self.lay.sizeHint())
-
     def valuechange(self):
         position = self.sl.value()
         try:
@@ -127,6 +186,7 @@ class Cropper(QMainWindow):
 
             pixmap = QPixmap.fromImage(qdata)
             self.label.setPixmap(pixmap)
+
         except Exception:
             print('something went wrong')
 

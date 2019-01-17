@@ -172,12 +172,14 @@ class Encoder(QtCore.QThread):
         #JobScanner.new_signal2(job, 7, 'COMPLETE')
         job.runJob.setStyleSheet("background-color: rgb(50, 50, 50);color: green;")
         job.runJob.setText('DONE')
+        job.runJob.update()
 
     def jobFailed(self, job):
         job.failed = True
         JobScanner.new_signal2(job, 7, 'INPUT ERROR')
         job.runJob.setStyleSheet("background-color: rgb(50, 50, 50);color: red;")
         job.runJob.setText('FAILED')
+        job.runJob.update()
 
     def calcNewRes(self, job):
         try:
