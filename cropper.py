@@ -1,6 +1,6 @@
 from main import *
 from jobhandler import *
-from PyQt5.QtWidgets import QLabel, QMainWindow, QApplication, QWidget, QVBoxLayout, QHBoxLayout, QScrollArea, QSlider
+from PyQt5.QtWidgets import QLabel, QMainWindow, QApplication, QWidget, QVBoxLayout, QHBoxLayout, QScrollArea, QSlider, QSpacerItem, QLineEdit
 from PyQt5.QtGui import QPixmap, QMouseEvent, QImage
 import os, time
 from PyQt5 import QtCore
@@ -128,8 +128,25 @@ class Cropper(QMainWindow):
                 self.sl.setTickInterval(job.fps)
             else:
                 self.sl.setTickInterval(25)
+
             self.layBottom.addWidget(self.sl)
             self.sl.valueChanged.connect(self.valuechange)
+            self.sl.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+
+        self.vertSpacer = QSpacerItem(20, 0)
+
+        font = QtGui.QFont('SansSerif', 12)
+        self.layBottom.addItem(self.vertSpacer)
+        self.coordinateLabels =  [QLabel(x) for x in ["<font color='grey'>X:</font>", "<font color='grey'>Y:</font>", "<font color='grey'>W:</font>", "<font color='grey'>H:</font>"]]
+        self.coordinateEntry = [QLineEdit(x) for x in ['0', '0', '0', '0']]
+        [x.setFont(font) for x in self.coordinateLabels]
+        for i in range(4):
+            self.layBottom.addWidget(self.coordinateLabels[i])
+            self.layBottom.addWidget(self.coordinateEntry[i])
+            self.coordinateEntry[i].setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        [x.setFixedSize(x.sizeHint()) for x in self.coordinateLabels]
+        [x.setFixedWidth(34) for x in self.coordinateEntry]
+        [x.setStyleSheet("color: 'grey'; background-color: rgb(60, 63, 65)") for x in self.coordinateEntry]
 
         if self.label.sizeHint().width() >= 1902:
             self.scrollArea.setFixedWidth(1902)
@@ -168,6 +185,7 @@ class Cropper(QMainWindow):
         print('image', pixmap.width(), pixmap.height())
         print('label', self.label.sizeHint())
         print('window', self.geometry())
+
     def valuechange(self):
         position = self.sl.value()
         try:
