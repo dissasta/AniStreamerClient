@@ -42,6 +42,7 @@ class Asset(object):
             self.fillFormats()
 
     def toggleRunJobButton(self):
+        self.outFilename.setText(''.join(ch for ch in self.outFilename.text() if ch not in '<>:"/\|?*'))
         if self.format.currentText() and self.outFilename.text():
             self.runJob.setEnabled(1)
             self.runJob.setStyleSheet("background-color: rgb(50, 50, 50); color: gold;")

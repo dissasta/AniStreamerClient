@@ -1,7 +1,7 @@
 from main import *
 from jobhandler import *
-from PyQt5.QtWidgets import QLabel, QMainWindow, QApplication, QWidget, QVBoxLayout, QHBoxLayout, QScrollArea, QSlider, QSpacerItem, QLineEdit
-from PyQt5.QtGui import QPixmap, QMouseEvent, QImage
+from PyQt5.QtWidgets import QLabel, QMainWindow, QApplication, QWidget, QVBoxLayout, QHBoxLayout, QScrollArea, QSlider, QSpacerItem, QLineEdit, QPushButton
+from PyQt5.QtGui import QPixmap, QMouseEvent, QImage, QIntValidator
 import os, time
 from PyQt5 import QtCore
 
@@ -11,9 +11,10 @@ class MyLabel(QLabel):
         self.begin = QtCore.QPoint()
         self.end = QtCore.QPoint()
         self.crop = QLabel(self)
-        self.crop.setGeometry(0,0, 100, 100)
-        self.crop.setStyleSheet("background-color: rgb(50, 50, 50)")
-        self.cropp = (10000, 10000)
+        self.crop.setGeometry(0, 0, 0, 0)
+        self.crop.setStyleSheet("background-color: rgba(100, 0, 0, 40);border: 1px inset black")
+        self.cropSize = [0,0,0,0]
+        print(self.crop.geometry())
 
     def paintEvent(self, event):
         super(MyLabel, self).paintEvent(event)
@@ -58,13 +59,12 @@ class Cropper(QMainWindow):
     def __init__(self, job):
         QMainWindow.__init__(self)
         self.targaLabel = 'TRUEVISION-XFILE. '
+        self.readable = None
         self.job = job
         self.sl = None
         self.setWindowTitle("EDIT")
         self.setWindowIcon(QtGui.QIcon('icon.png'))
         self.setStyleSheet("background-color: rgb(50, 50, 50);")
-        #self.setMaximumSize(1920,1080)
-        #self.setGeometry(0,0,int(job.resolution.split('x')[0]),int(job.resolution.split('x')[1]))
         self.centralWidget = QWidget()
         self.setCentralWidget(self.centralWidget)
         self.lay = QVBoxLayout(self.centralWidget)
@@ -89,33 +89,13 @@ class Cropper(QMainWindow):
         if self.job.type == 'Still':
             print(self.job.isTGA)
             imageData = open(job.path, 'rb')
-            if self.job.isTGA:
-                barray = QtCore.QByteArray()
-                barray.append(imageData.read())
-                for i in self.targaLabel:
-                    barray.append(i)
-                qdata = QImage.fromData(barray, 'tga')
-            else:
-                barray = QtCore.QByteArray()
-                barray.append(imageData.read())
-                qdata = QImage.fromData(barray)
-
+            qdata = self.loadImageFromBin(imageData)
             pixmap = QPixmap.fromImage(qdata)
             self.label.setPixmap(pixmap)
 
         elif self.job.type == 'Sequence':
             imageData = open(os.path.join(self.job.path, self.job.content[0]), 'rb')
-            if self.job.isTGA:
-                barray = QtCore.QByteArray()
-                barray.append(imageData.read())
-                for i in self.targaLabel:
-                    barray.append(i)
-                qdata = QImage.fromData(barray, 'tga')
-            else:
-                barray = QtCore.QByteArray()
-                barray.append(imageData.read())
-                qdata = QImage.fromData(barray)
-
+            qdata = self.loadImageFromBin(imageData)
             pixmap = QPixmap.fromImage(qdata)
             self.label.setPixmap(pixmap)
 
@@ -146,7 +126,15 @@ class Cropper(QMainWindow):
             self.coordinateEntry[i].setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
         [x.setFixedSize(x.sizeHint()) for x in self.coordinateLabels]
         [x.setFixedWidth(34) for x in self.coordinateEntry]
+        [x.editingFinished.connect(self.setCoords) for x in self.coordinateEntry]
         [x.setStyleSheet("color: 'grey'; background-color: rgb(60, 63, 65)") for x in self.coordinateEntry]
+
+        self.resetBtn = QPushButton('RESET', self)
+        self.resetBtn.setStyleSheet("background-color: rgb(50, 50, 50); color: grey;")
+        self.resetBtn.setMinimumWidth(32)
+        self.resetBtn.clicked.connect(self.resetCropArea)
+
+        self.layBottom.addWidget(self.resetBtn)
 
         if self.label.sizeHint().width() >= 1902:
             self.scrollArea.setFixedWidth(1902)
@@ -155,8 +143,8 @@ class Cropper(QMainWindow):
             self.setFixedWidth(self.lay.sizeHint().width())
         else:
             self.scrollArea.setFixedWidth(self.label.sizeHint().width())
-            if self.label.sizeHint().width() <= 302:
-                self.setFixedWidth(320)
+            if self.label.sizeHint().width() <= 662:
+                self.setFixedWidth(680)
             else:
                 self.layTop.activate()
                 self.setFixedWidth(self.lay.sizeHint().width())
@@ -174,10 +162,15 @@ class Cropper(QMainWindow):
         if self.sl:
             self.sl.setFixedWidth(self.geometry().width()/2)
 
-        #self.setFixedSize(self.lay.sizeHint())
-        print('mainlayout', self.label.cropp)
-
         self.show()
+        xwValidator = QIntValidator(0, self.label.geometry().width())
+        yhValidator = QIntValidator(0, self.label.geometry().height())
+        self.coordinateEntry[0].setValidator(xwValidator)
+        self.coordinateEntry[1].setValidator(yhValidator)
+        self.coordinateEntry[2].setValidator(xwValidator)
+        self.coordinateEntry[3].setValidator(yhValidator)
+        #self.setFixedSize(self.lay.sizeHint())
+
         print('mainlayout', self.lay.sizeHint())
         print('toplayout', self.layTop.sizeHint())
         print('bottomlayout', self.layBottom.sizeHint())
@@ -186,23 +179,48 @@ class Cropper(QMainWindow):
         print('label', self.label.sizeHint())
         print('window', self.geometry())
 
+    def loadImageFromBin(self, imageData):
+        barray = QtCore.QByteArray()
+        barray.append(imageData.read())
+        if self.job.isTGA:
+            if self.readable == None:
+                if barray[-len(self.targaLabel):] == b'TRUEVISION-XFILE.\x00':
+                    self.readable = True
+                else:
+                    self.readable = False
+            for i in self.targaLabel:
+                barray.append(i)
+            qdata = QImage.fromData(barray, 'tga')
+        else:
+            qdata = QImage.fromData(barray)
+            self.readable = True
+        return qdata
+
+    def resetCropArea(self):
+        self.cropSize = [0, 0, 0, 0]
+        self.label.crop.setGeometry(0, 0, 0, 0)
+        self.label.crop.hide()
+        [x.setText('0') for x in self.coordinateEntry]
+
+    def setCoords(self):
+        coords = [x.text() for x in self.coordinateEntry]
+        if not '' in coords:
+            if int(coords[0]) + int(coords[2]) > self.label.geometry().width():
+               self.coordinateEntry[2].setText(str(self.label.geometry().width() - int(coords[0])))
+            if int(coords[1]) + int(coords[3]) > self.label.geometry().height():
+               self.coordinateEntry[3].setText(str(self.label.geometry().height() - int(coords[1])))
+            self.label.crop.show()
+            self.label.crop.setGeometry(int(coords[0]), int(coords[1]), int(coords[2]), int(coords[3]))
+
     def valuechange(self):
         position = self.sl.value()
         try:
-            imageData = open(os.path.join(self.job.path, self.job.content[position]), 'rb')
-            if self.job.isTGA:
-                barray = QtCore.QByteArray()
-                barray.append(imageData.read())
-                for i in self.targaLabel:
-                    barray.append(i)
-
-                qdata = QImage.fromData(barray, 'tga')
+            if not self.readable:
+                imageData = open(os.path.join(self.job.path, self.job.content[position]), 'rb')
+                qdata = self.loadImageFromBin(imageData)
+                pixmap = QPixmap.fromImage(qdata)
             else:
-                barray = QtCore.QByteArray()
-                barray.append(imageData.read())
-                qdata = QImage.fromData(barray)
-
-            pixmap = QPixmap.fromImage(qdata)
+                pixmap = QPixmap(os.path.join(self.job.path, self.job.content[position]))
             self.label.setPixmap(pixmap)
 
         except Exception:
