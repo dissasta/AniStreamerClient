@@ -17,7 +17,7 @@ class Encoder(QtCore.QThread):
             job.runJob.setStyleSheet("background-color: rgb(50, 50, 50);color: orange;")
             job.runJob.setText('WORKING')
             AniNewRes = self.calcNewRes(job)
-
+            print(job.crop)
             if AniNewRes:
                 hRes = AniNewRes.split('x')[0]
                 vRes = AniNewRes.split('x')[1]

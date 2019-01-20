@@ -138,7 +138,7 @@ class Sequence(Asset):
         self.type = 'Sequence'
         self.content = content
         self.matrix = matrix
-        self.toMov = False
+        self.fps = 25
         self.isTGA = False
         self.validFormat = False
         self.gaps = gaps
@@ -630,6 +630,7 @@ class JobScanner(QtCore.QThread):
 
         if workedOn:
             job.ingest.setEnabled(0)
+            job.edit.setEnabled(0)
             job.format.setEnabled(0)
             job.outFilename.setEnabled(0)
             job.runJob.setEnabled(0)

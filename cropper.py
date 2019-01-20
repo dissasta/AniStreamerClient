@@ -1,27 +1,18 @@
 from main import *
 from jobhandler import *
-from PyQt5.QtWidgets import QLabel, QMainWindow, QApplication, QWidget, QVBoxLayout, QHBoxLayout, QScrollArea, QSlider, QSpacerItem, QLineEdit, QPushButton
+from PyQt5.QtWidgets import QLabel, QMainWindow, QApplication, QWidget, QVBoxLayout, QHBoxLayout, QScrollArea, QSlider, QSpacerItem, QLineEdit, QPushButton, QToolTip
 from PyQt5.QtGui import QPixmap, QMouseEvent, QImage, QIntValidator
 import os, time
 from PyQt5 import QtCore
 
 class MyLabel(QLabel):
+    coordSignal = QtCore.pyqtSignal(int, int, int, int)
     def __init__(self):
         QLabel.__init__(self)
         self.begin = QtCore.QPoint()
         self.end = QtCore.QPoint()
         self.crop = QLabel(self)
-        self.crop.setGeometry(0, 0, 0, 0)
         self.crop.setStyleSheet("background-color: rgba(100, 0, 0, 40);border: 1px inset black")
-        self.cropSize = [0,0,0,0]
-        print(self.crop.geometry())
-
-    def paintEvent(self, event):
-        super(MyLabel, self).paintEvent(event)
-        qp = QtGui.QPainter(self)
-        br = QtGui.QBrush(QtGui.QColor(100, 10, 10, 40))
-        qp.setBrush(br)
-        qp.drawRect(QtCore.QRect(self.begin, self.end))
 
     def getPos(self, event):
         pos = [0, 0]
@@ -38,23 +29,42 @@ class MyLabel(QLabel):
             pos[1] = self.geometry().height()
         else:
             pos[1] = event.pos().y()
-
         return pos
 
     def mousePressEvent(self, event: QMouseEvent):
-        self.begin = event.pos()
-        self.end = event.pos()
-        #self.update()
+        self.crop.show()
+        self.crop.setGeometry(0,0,0,0)
+        self.cropSize = [0,0,0,0]
+        self.myPosStart = self.getPos(event)
 
     def mouseMoveEvent(self, event):
-        self.end = event.pos()
-        self.update()
+        self.myPosEnd = self.getPos(event)
+        if self.myPosEnd[0] > self.myPosStart[0]:
+            self.crop.x = self.myPosStart[0]
+            self.crop.w = self.myPosEnd[0] - self.myPosStart[0]
+        else:
+            self.crop.x = self.myPosEnd[0]
+            self.crop.w = self.myPosStart[0] - self.myPosEnd[0]
+
+        if self.myPosEnd[1] > self.myPosStart[1]:
+            self.crop.y = self.myPosStart[1]
+            self.crop.h = self.myPosEnd[1] - self.myPosStart[1]
+        else:
+            self.crop.y = self.myPosEnd[1]
+            self.crop.h = self.myPosStart[1] - self.myPosEnd[1]
+
+        self.crop.setGeometry(self.crop.x, self.crop.y, self.crop.w, self.crop.h)
+        self.coordSignal.emit(self.crop.x, self.crop.y, self.crop.w, self.crop.h)
 
     def mouseReleaseEvent(self, event):
-        self.begin = event.pos()
-        self.end = event.pos()
-        #self.update()
+        self.cropSize = [self.crop.x, self.crop.y, self.crop.w, self.crop.h]
 
+    def enterEvent(self, event):
+        print('mouse')
+
+    def leaveEvent(self, event):
+
+        print('eft')
 class Cropper(QMainWindow):
     def __init__(self, job):
         QMainWindow.__init__(self)
@@ -62,7 +72,8 @@ class Cropper(QMainWindow):
         self.readable = None
         self.job = job
         self.sl = None
-        self.setWindowTitle("EDIT")
+        self.minWidth = None
+        self.setWindowTitle("EDIT | RES: %s" % self.job.resolution)
         self.setWindowIcon(QtGui.QIcon('icon.png'))
         self.setStyleSheet("background-color: rgb(50, 50, 50);")
         self.centralWidget = QWidget()
@@ -87,11 +98,11 @@ class Cropper(QMainWindow):
         self.lay.addLayout(self.layBottom)
 
         if self.job.type == 'Still':
-            print(self.job.isTGA)
             imageData = open(job.path, 'rb')
             qdata = self.loadImageFromBin(imageData)
             pixmap = QPixmap.fromImage(qdata)
             self.label.setPixmap(pixmap)
+            self.minWidth = 400
 
         elif self.job.type == 'Sequence':
             imageData = open(os.path.join(self.job.path, self.job.content[0]), 'rb')
@@ -112,11 +123,20 @@ class Cropper(QMainWindow):
             self.layBottom.addWidget(self.sl)
             self.sl.valueChanged.connect(self.valuechange)
             self.sl.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+            self.minWidth = 680
 
         self.vertSpacer = QSpacerItem(20, 0)
-
         font = QtGui.QFont('SansSerif', 12)
         self.layBottom.addItem(self.vertSpacer)
+
+        self.tcLabel = QLabel()
+        self.tcLabel.setText('00:00:00.01')
+        self.tcLabel.setStyleSheet("color: white")
+        self.tcLabel.setFont(font)
+        self.layBottom.addWidget(self.tcLabel)
+
+        self.layBottom.addItem(self.vertSpacer)
+
         self.coordinateLabels =  [QLabel(x) for x in ["<font color='grey'>X:</font>", "<font color='grey'>Y:</font>", "<font color='grey'>W:</font>", "<font color='grey'>H:</font>"]]
         self.coordinateEntry = [QLineEdit(x) for x in ['0', '0', '0', '0']]
         [x.setFont(font) for x in self.coordinateLabels]
@@ -143,8 +163,8 @@ class Cropper(QMainWindow):
             self.setFixedWidth(self.lay.sizeHint().width())
         else:
             self.scrollArea.setFixedWidth(self.label.sizeHint().width())
-            if self.label.sizeHint().width() <= 662:
-                self.setFixedWidth(680)
+            if self.label.sizeHint().width() <= self.minWidth - 18:
+                self.setFixedWidth(self.minWidth)
             else:
                 self.layTop.activate()
                 self.setFixedWidth(self.lay.sizeHint().width())
@@ -163,21 +183,32 @@ class Cropper(QMainWindow):
             self.sl.setFixedWidth(self.geometry().width()/2)
 
         self.show()
-        xwValidator = QIntValidator(0, self.label.geometry().width())
-        yhValidator = QIntValidator(0, self.label.geometry().height())
-        self.coordinateEntry[0].setValidator(xwValidator)
-        self.coordinateEntry[1].setValidator(yhValidator)
-        self.coordinateEntry[2].setValidator(xwValidator)
-        self.coordinateEntry[3].setValidator(yhValidator)
-        #self.setFixedSize(self.lay.sizeHint())
 
-        print('mainlayout', self.lay.sizeHint())
-        print('toplayout', self.layTop.sizeHint())
-        print('bottomlayout', self.layBottom.sizeHint())
-        print('scrollbox', self.scrollArea.frameGeometry())
-        print('image', pixmap.width(), pixmap.height())
-        print('label', self.label.sizeHint())
-        print('window', self.geometry())
+        self.xwValidator = QIntValidator(0, self.label.geometry().width())
+        self.yhValidator = QIntValidator(0, self.label.geometry().height())
+        self.coordinateEntry[0].setValidator(self.xwValidator)
+        self.coordinateEntry[1].setValidator(self.yhValidator)
+        self.coordinateEntry[2].setValidator(self.xwValidator)
+        self.coordinateEntry[3].setValidator(self.yhValidator)
+
+        self.label.coordSignal.connect(self.updateCoords)
+        #print('mainlayout', self.lay.sizeHint())
+        #print('toplayout', self.layTop.sizeHint())
+        #print('bottomlayout', self.layBottom.sizeHint())
+        #print('scrollbox', self.scrollArea.frameGeometry())
+        #print('image', pixmap.width(), pixmap.height())
+        #print('label', self.label.sizeHint())
+        #print('window', self.geometry())
+
+    def updateCoords(self, x, y, w, h):
+        self.coordinateEntry[0].setText(str(x))
+        self.coordinateEntry[1].setText(str(y))
+        self.coordinateEntry[2].setText(str(w))
+        self.coordinateEntry[3].setText(str(h))
+        self.job.crop = [x, y, w, h]
+
+    def mouseMoveEvent(self, event):
+        print('Mouse coords: ( %d : %d )' % (event.x(), event.y()))
 
     def loadImageFromBin(self, imageData):
         barray = QtCore.QByteArray()
@@ -197,7 +228,7 @@ class Cropper(QMainWindow):
         return qdata
 
     def resetCropArea(self):
-        self.cropSize = [0, 0, 0, 0]
+        self.job.crop = []
         self.label.crop.setGeometry(0, 0, 0, 0)
         self.label.crop.hide()
         [x.setText('0') for x in self.coordinateEntry]
@@ -211,9 +242,20 @@ class Cropper(QMainWindow):
                self.coordinateEntry[3].setText(str(self.label.geometry().height() - int(coords[1])))
             self.label.crop.show()
             self.label.crop.setGeometry(int(coords[0]), int(coords[1]), int(coords[2]), int(coords[3]))
+            self.job.crop = [int(coords[0]), int(coords[1]), int(coords[2]), int(coords[3])]
+
+    def updateTC(self, frames):
+        print(frames)
+        hh = int(frames / 60 / 60 / self.job.fps)
+        mm = int(frames / 60 / self.job.fps) - (hh * 60)
+        ss = int(frames / self.job.fps) - (mm * 60) - (hh * 60 * 60)
+        ff = int(frames) - (ss * self.job.fps) - (mm * 60 * self.job.fps) - (hh * 60 * 60 * self.job.fps)
+        string = '%02d:%02d:%02d.%02d' % (hh, mm, ss, ff)
+        self.tcLabel.setText(str(string))
 
     def valuechange(self):
         position = self.sl.value()
+        self.updateTC(position + 1)
         try:
             if not self.readable:
                 imageData = open(os.path.join(self.job.path, self.job.content[position]), 'rb')

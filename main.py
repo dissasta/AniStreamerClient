@@ -12,8 +12,8 @@ ffmpegPresent = False
 serverIP = '192.168.0.33'
 serverPort = 6666
 buffSize = 1024
-tempDir = 'd:\\WORKSPACE\\TEMP'
-outputDir = 'd:\\WORKSPACE\\OUTPUT'
+tempDir = 'e:\\Tools\\TEMP'
+outputDir = 'e:\\Tools\\OUTPUT'
 extendAni = True
 aniQFactor = 1
 pngCompressionLevel = 100
@@ -69,6 +69,7 @@ class JobHandlerWidget(QWidget):
             self.tree.header().setSectionResizeMode(column, QtWidgets.QHeaderView.Fixed)
         self.setWindowIcon(QtGui.QIcon('import.png'))
         self.tree.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+        self.tree.header().setSectionsMovable(False)
         self.show()
 
     def scanJobs(self, assets):
