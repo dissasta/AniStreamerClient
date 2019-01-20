@@ -34,7 +34,7 @@ class MyLabel(QLabel):
     def mousePressEvent(self, event: QMouseEvent):
         self.crop.show()
         self.crop.setGeometry(0,0,0,0)
-        self.cropSize = [0,0,0,0]
+        self.coordSignal.emit(0,0,0,0)
         self.myPosStart = self.getPos(event)
 
     def mouseMoveEvent(self, event):
@@ -63,8 +63,8 @@ class MyLabel(QLabel):
         print('mouse')
 
     def leaveEvent(self, event):
-
         print('eft')
+
 class Cropper(QMainWindow):
     def __init__(self, job):
         QMainWindow.__init__(self)
