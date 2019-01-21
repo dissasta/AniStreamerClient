@@ -62,11 +62,9 @@ class MyLabel(QLabel):
 
     def enterEvent(self, event):
         pass
-        #print('mouse')
 
     def leaveEvent(self, event):
         pass
-        #print('eft')
 
 class Cropper(QMainWindow):
     def __init__(self, parent, job):

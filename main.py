@@ -237,6 +237,9 @@ class JobHandlerWidget(QWidget):
         self.close()
         if self.cropper:
             self.cropper.close()
+        if self.jobHandlerThread.isRunning():
+            self.jobHandlerThread.terminate()
+            self.jobHandlerThread.wait()
 
     def dragEnterEvent(self, e):
         if e.mimeData().hasUrls() and ffmpegPresent:

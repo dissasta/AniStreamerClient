@@ -1,4 +1,4 @@
-import random, re, zipfile, subprocess, os, time, shutil, rarfile, tarfile
+import random, re, zipfile, subprocess, os, time, shutil, rarfile, tarfile, binascii
 from main import *
 from encoder import *
 from config import *
@@ -142,6 +142,7 @@ class Sequence(Asset):
         self.matrix = matrix
         self.fps = 25
         self.isTGA = False
+        self.isPNG = False
         self.validFormat = False
         self.gaps = gaps
         if 'tga' in matrix.lower():
@@ -409,34 +410,63 @@ class JobScanner(QtCore.QThread):
 
                 counter = 0
                 for i in job.content:
-                    file = os.path.join(job.path, i)
-                    metadata = subprocess.Popen(['ffmpeg', '-i', file, '-hide_banner'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si)
-                    out, err = metadata.communicate()
-                    err = err.decode('utf-8')
+                    if counter == 0:
 
-                    if not job.resolution:
-                        job.resolution = re.findall('\d+x\d+', err)[0]
-                        self.new_signal2.emit(job, 5, job.resolution)
+                        file = os.path.join(job.path, i)
+                        metadata = subprocess.Popen(['ffmpeg', '-i', file, '-hide_banner'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si)
+                        out, err = metadata.communicate()
+                        err = err.decode('utf-8')
 
-                    if not job.isTGA:
+                        if not job.resolution:
+                            job.resolution = re.findall('\d+x\d+', err)[0]
+                            self.new_signal2.emit(job, 5, job.resolution)
+
                         if job.content[0].split('.')[-1].lower() == 'tga' and "Video: targa" in err:
                             job.isTGA = True
-                            #print('mamytarge')
+                        elif job.content[0].split('.')[-1].lower() == 'png' and "Video: png" in err:
+                            job.isPNG = True
 
-                    alpha = any(x in err for x in alphaTags)
-                    if not alpha:
-                        job.alpha = False
-                        break
+                        alpha = any(x in err for x in alphaTags)
+                        if not alpha:
+                            job.alpha = False
+                            break
+                        else:
+                            job.alpha = True
+
+                        correctFormat = (("Video: %s" % job.ffmpegName) in err)
+                        if not correctFormat:
+                            job.validFormat = False
+                            break
+                        else:
+                            job.validFormat = True
+                            if job.isTGA:
+                                with open(file, 'rb') as input:
+                                    testHeader = binascii.hexlify(input.read(18))
+                            elif job.isPNG:
+                                with open(file, 'rb') as input:
+                                    testHeader = binascii.hexlify(input.read(29))
                     else:
-                        job.alpha = True
+                        if job.isTGA:
+                            file = os.path.join(job.path, i)
+                            with open(file, 'rb') as input:
+                                header = binascii.hexlify(input.read(18))
 
-                    correctFormat = (("Video: %s" % job.ffmpegName) in err)
-                    if not correctFormat:
-                        job.validFormat = False
-                        break
-                    else:
-                        job.validFormat = True
+                            if header != testHeader:
+                                job.alpha = False
+                                job.valid = False
+                                break
 
+                        elif job.isPNG:
+                            file = os.path.join(job.path, i)
+                            with open(file, 'rb') as input:
+                                header = binascii.hexlify(input.read(29))
+
+                            if header != testHeader:
+                                job.alpha = False
+                                job.valid = False
+                                break
+
+                    time.sleep(0.001)
                     counter += 1
                     percentage = int(100/(len(job.content)/counter))
                     self.new_signal2.emit(job, 3, str(percentage) + '%')
