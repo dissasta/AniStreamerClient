@@ -223,7 +223,6 @@ class JobHandlerWidget(QWidget):
             self.cropper = Cropper(self, job)
 
     def runAllJobs(self):
-        print('runrunrun')
         #self.goButton.setText('WORKING')
         #self.goButton.setStyleSheet("background-color: rgb(50, 50, 50);color: green;")
         self.jobHandlerThread.processAll()
@@ -236,7 +235,8 @@ class JobHandlerWidget(QWidget):
 
     def closeEvent(self, e):
         self.close()
-        self.cropper.close()
+        if self.cropper:
+            self.cropper.close()
 
     def dragEnterEvent(self, e):
         if e.mimeData().hasUrls() and ffmpegPresent:
@@ -394,7 +394,7 @@ class Client(QMainWindow):
     def mainPopUp(self):
         self.show()
         self.dropZone.counter = 0
-        print (self.socket)
+        #print (self.socket)
         self.sysTray.setVisible(False)
 
     def dropZonePopUp(self):
@@ -434,7 +434,7 @@ class Client(QMainWindow):
 
     def makeConnection(self):
         try:
-            print('trying to connect')
+            #print('trying to connect')
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.socket.connect((serverIP, serverPort))
             self.connected = True

@@ -6,7 +6,7 @@ from distutils.spawn import find_executable
 
 def toolCheck(exeFile):
     return find_executable(exeFile) is not None
-print(os.getcwd())
+
 ffmpegPresent = toolCheck('ffmpeg.exe')
 unRARPresent = toolCheck('UnRAR.exe')
 sevenZipPresent = toolCheck('7z.exe')

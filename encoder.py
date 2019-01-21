@@ -3,6 +3,9 @@ from jobhandler import *
 from PyQt5 import QtCore
 from main import *
 
+si = subprocess.STARTUPINFO()
+si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+
 class Encoder(QtCore.QThread):
     def __init__(self, job):
         QtCore.QThread.__init__(self)
@@ -15,7 +18,6 @@ class Encoder(QtCore.QThread):
             job = self.jobs.pop(0)
             job.runJob.setStyleSheet("background-color: rgb(50, 50, 50);color: orange;")
             job.runJob.setText('WORKING')
-            print(job.crop)
             AniNewRes = self.calcNewRes(job)
             hRes = AniNewRes.split('x')[0]
             vRes = AniNewRes.split('x')[1]
@@ -33,7 +35,7 @@ class Encoder(QtCore.QThread):
                 yPos = str(job.crop[1])
                 vPad = str(int(AniNewRes.split('x')[1]) - int(job.crop[3]))
                 hPad = str(int(AniNewRes.split('x')[0]) - int(job.crop[2]))
-
+            """
             print('orgHRes', orgHRes)
             print('orgVRes', orgVRes)
             print('x', xPos)
@@ -42,15 +44,15 @@ class Encoder(QtCore.QThread):
             print('vRes', vRes)
             print('hPad', hPad)
             print('vPad', vPad)
-
+            """
             if job.type == 'Still':
                 target = os.path.join(tempDir, job.outFilename.text())
                 if job.format.currentText() == 'ANI':
                     target = target + '.ani'
-                    encode = subprocess.Popen('ffmpeg -loop 1 -i ' + '"' + job.path + '"' + ' -filter_complex "[0:0]crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + ',pad=width=' + hRes + ':height=' + vRes + ':x=' + hPad +':y=' + vPad + ':color=black[fill];[0:0]alphaextract,crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + ',pad=width=' + hRes + ':height=' + vRes + ':x=' + hPad + ':y=' + vPad + ':color=black[key]" -y -vcodec mpeg2video -pix_fmt yuv422p -hide_banner -map "[fill]" -map "[key]" -q:v ' + str(aniQFactor) + ' -b:v 5000k -f vob -t 4 ' + '"' + target + '"', shell=True, stderr=subprocess.PIPE)
+                    encode = subprocess.Popen('ffmpeg -loop 1 -i ' + '"' + job.path + '"' + ' -filter_complex "[0:0]crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + ',pad=width=' + hRes + ':height=' + vRes + ':x=' + hPad +':y=' + vPad + ':color=black[fill];[0:0]alphaextract,crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + ',pad=width=' + hRes + ':height=' + vRes + ':x=' + hPad + ':y=' + vPad + ':color=black[key]" -y -vcodec mpeg2video -pix_fmt yuv422p -hide_banner -map "[fill]" -map "[key]" -q:v ' + str(aniQFactor) + ' -b:v 5000k -f vob -t 4 ' + '"' + target + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si)
                 elif job.format.currentText() == 'MOV':
                     target = target + '.mov'
-                    encode = subprocess.Popen('ffmpeg -loop 1 -i ' + '"' + job.path + '"' + ' -y -t 4 -filter_complex "[0:0]crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + '" -pix_fmt argb -vcodec qtrle -an ' + '"' + target + '"', shell=True, stderr=subprocess.PIPE)
+                    encode = subprocess.Popen('ffmpeg -loop 1 -i ' + '"' + job.path + '"' + ' -y -t 4 -filter_complex "[0:0]crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + '" -pix_fmt argb -vcodec qtrle -an ' + '"' + target + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si)
 
                 elif job.format.currentText() == 'PASS-THROUGH':
                     encode = None
@@ -59,11 +61,11 @@ class Encoder(QtCore.QThread):
 
                 elif job.format.currentText() == 'TGA':
                     target = target + '.tga'
-                    encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -y -filter_complex "[0:0]crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + '" -pix_fmt bgra -coder raw ' + '"' + target + '"', shell=True, stderr=subprocess.PIPE)
+                    encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -y -filter_complex "[0:0]crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + '" -pix_fmt bgra -coder raw ' + '"' + target + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si)
 
                 elif job.format.currentText() == 'PNG':
                     target = target + '.png'
-                    encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -y -filter_complex "[0:0]crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + '" -pix_fmt rgba -compression_level ' + str(pngCompressionLevel) + ' "' + target + '"', shell=True, stderr=subprocess.PIPE)
+                    encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -y -filter_complex "[0:0]crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + '" -pix_fmt rgba -compression_level ' + str(pngCompressionLevel) + ' "' + target + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si)
 
                 if encode:
                     out = encode.communicate()
@@ -77,18 +79,18 @@ class Encoder(QtCore.QThread):
                     if extendAni:
                         self.extendSequence(job)
                     target = target + '.ani'
-                    encode = subprocess.Popen('ffmpeg -start_number ' + job.firstFrame + ' -i ' + '"' + source + '"' + ' -filter_complex "[0:0]crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + ',pad=width=' + hRes + ':height=' + vRes + ':x=' + hPad +':y=' + vPad + ':color=black[fill];[0:0]alphaextract,crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + ',pad=width=' + hRes + ':height=' + vRes + ':x=' + hPad + ':y=' + vPad + ':color=black[key]" -y -vcodec mpeg2video -pix_fmt yuv422p -hide_banner -map "[fill]" -map "[key]" -q:v ' + str(aniQFactor) + ' -b:v 5000k -f vob ' + '"' + target + '"', shell=True, stderr=subprocess.PIPE)
+                    encode = subprocess.Popen('ffmpeg -start_number ' + job.firstFrame + ' -i ' + '"' + source + '"' + ' -filter_complex "[0:0]crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + ',pad=width=' + hRes + ':height=' + vRes + ':x=' + hPad +':y=' + vPad + ':color=black[fill];[0:0]alphaextract,crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + ',pad=width=' + hRes + ':height=' + vRes + ':x=' + hPad + ':y=' + vPad + ':color=black[key]" -y -vcodec mpeg2video -pix_fmt yuv422p -hide_banner -map "[fill]" -map "[key]" -q:v ' + str(aniQFactor) + ' -b:v 5000k -f vob ' + '"' + target + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si)
 
                 elif job.format.currentText() == 'MOV':
                     target = target + '.mov'
-                    encode = subprocess.Popen('ffmpeg -start_number ' + job.firstFrame + ' -i ' + '"' + source + '"' + ' -y -filter_complex "[0:0]crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + '" -pix_fmt argb -vcodec qtrle -an ' + '"' + target + '"', shell=True, stderr=subprocess.PIPE)
+                    encode = subprocess.Popen('ffmpeg -start_number ' + job.firstFrame + ' -i ' + '"' + source + '"' + ' -y -filter_complex "[0:0]crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + '" -pix_fmt argb -vcodec qtrle -an ' + '"' + target + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si)
 
                 elif job.format.currentText() == "PNG SEQUENCE 2xFPS":
                     target = os.path.join(tempDir, job.outFilename.text())
                     if not os.path.exists(target):
                         os.mkdir(target)
                     output = os.path.join(target, job.outFilename.text() + '_%05d.png')
-                    encode = subprocess.Popen('ffmpeg -start_number ' + job.firstFrame + ' -i ' + '"' + source + '"' + ' -y -filter_complex "[0:0]crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + ', setpts=2.0*PTS" -pix_fmt rgba -compression_level ' + str(pngCompressionLevel) + ' "' + output + '"', shell=True, stderr=subprocess.PIPE)
+                    encode = subprocess.Popen('ffmpeg -start_number ' + job.firstFrame + ' -i ' + '"' + source + '"' + ' -y -filter_complex "[0:0]crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + ', setpts=2.0*PTS" -pix_fmt rgba -compression_level ' + str(pngCompressionLevel) + ' "' + output + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si)
 
                 out = encode.communicate()
 
@@ -96,18 +98,18 @@ class Encoder(QtCore.QThread):
                 target = os.path.join(tempDir, job.outFilename.text())
                 if job.format.currentText() == 'ANI':
                     target = target + '.ani'
-                    encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -y -filter_complex "[0:0]pad=width=' + hRes + ':height=' + vRes + ':x=' + hPad +':y=' + vPad + ':color=black[fill];[0:0]alphaextract,pad=width=' + hRes + ':height=' + vRes + ':x=' + hPad + ':y=' + vPad + ':color=black[key]" -y -vcodec mpeg2video -pix_fmt yuv422p -hide_banner -map "[fill]" -map "[key]" -q:v ' + str(aniQFactor) + ' -b:v 5000k -f vob ' + '"' + target + '"', shell=True, stderr=subprocess.PIPE)
+                    encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -y -filter_complex "[0:0]pad=width=' + hRes + ':height=' + vRes + ':x=' + hPad +':y=' + vPad + ':color=black[fill];[0:0]alphaextract,pad=width=' + hRes + ':height=' + vRes + ':x=' + hPad + ':y=' + vPad + ':color=black[key]" -y -vcodec mpeg2video -pix_fmt yuv422p -hide_banner -map "[fill]" -map "[key]" -q:v ' + str(aniQFactor) + ' -b:v 5000k -f vob ' + '"' + target + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si)
 
                 elif job.format.currentText() == 'MOV':
                     target = target + '.mov'
                     if job.isANI:
-                        encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -i ' + '"' + job.path + '"' + ' -y -filter_complex [0:0][1:1]alphamerge -pix_fmt argb -vcodec qtrle -hide_banner ' + '"' + target + '"', shell=True, stderr=subprocess.PIPE)
+                        encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -i ' + '"' + job.path + '"' + ' -y -filter_complex [0:0][1:1]alphamerge -pix_fmt argb -vcodec qtrle -hide_banner ' + '"' + target + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si)
                     else:
-                        encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -y -pix_fmt argb -vcodec qtrle -an ' + '"' + target + '"', shell=True, stderr=subprocess.PIPE)
+                        encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -y -pix_fmt argb -vcodec qtrle -an ' + '"' + target + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si)
 
                 elif job.format.currentText() == 'CH5-MXF':
                     target = target + '.mxf'
-                    encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -y -pix_fmt yuv422p -vcodec mpeg2video -non_linear_quant 1 -flags +ildct+ilme -intra_vlc 1 -qmax 3 -lmin "1*QP2LAMBDA" -rc_max_vbv_use 1 -rc_min_vbv_use 1 -g 1 -b:v 50000k -minrate 50000k -maxrate 50000k -bufsize 8000k -an ' + '"' + target + '"', shell=True, stderr=subprocess.PIPE)
+                    encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -y -pix_fmt yuv422p -vcodec mpeg2video -non_linear_quant 1 -flags +ildct+ilme -intra_vlc 1 -qmax 3 -lmin "1*QP2LAMBDA" -rc_max_vbv_use 1 -rc_min_vbv_use 1 -g 1 -b:v 50000k -minrate 50000k -maxrate 50000k -bufsize 8000k -an ' + '"' + target + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si)
 
                 elif job.format.currentText() == 'PNG SEQUENCE':
                     target = os.path.join(tempDir, job.outFilename.text())
@@ -115,9 +117,9 @@ class Encoder(QtCore.QThread):
                         os.mkdir(target)
                     output = os.path.join(target, job.outFilename.text() + '_%05d.png')
                     if job.isANI:
-                        encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -i ' + '"' + job.path + '"' + ' -y -filter_complex [0:0][1:1]alphamerge -pix_fmt rgba -compression_level ' + str(pngCompressionLevel) + ' "' + output + '"', shell=True, stderr=subprocess.PIPE)
+                        encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -i ' + '"' + job.path + '"' + ' -y -filter_complex [0:0][1:1]alphamerge -pix_fmt rgba -compression_level ' + str(pngCompressionLevel) + ' "' + output + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si)
                     else:
-                        encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -y -pix_fmt rgba -compression_level ' + str(pngCompressionLevel) + ' "' + output + '"', shell=True, stderr=subprocess.PIPE)
+                        encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -y -pix_fmt rgba -compression_level ' + str(pngCompressionLevel) + ' "' + output + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si)
 
                 elif job.format.currentText() == 'TGA SEQUENCE':
                     target = os.path.join(tempDir, job.outFilename.text())
@@ -129,9 +131,9 @@ class Encoder(QtCore.QThread):
                     else:
                         pix_fmt = 'rgb24'
                     if job.isANI:
-                        encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -i ' + '"' + job.path + '"' + ' -y -filter_complex [0:0][1:1]alphamerge -pix_fmt ' + pix_fmt + ' -coder raw ' + '"' + output + '"', shell=True, stderr=subprocess.PIPE)
+                        encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -i ' + '"' + job.path + '"' + ' -y -filter_complex [0:0][1:1]alphamerge -pix_fmt ' + pix_fmt + ' -coder raw ' + '"' + output + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si)
                     else:
-                        encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -y -pix_fmt ' + pix_fmt + ' -coder raw ' + '"' + output + '"', shell=True, stderr=subprocess.PIPE)
+                        encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -y -pix_fmt ' + pix_fmt + ' -coder raw ' + '"' + output + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si)
 
                 elif job.format.currentText() == 'PNG SEQUENCE 2xFPS':
                     target = os.path.join(tempDir, job.outFilename.text())
@@ -139,9 +141,9 @@ class Encoder(QtCore.QThread):
                         os.mkdir(target)
                     output = os.path.join(target, job.outFilename.text() + '_%05d.png')
                     if job.isANI:
-                        encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -i ' + '"' + job.path + '"' + ' -y -filter_complex [0:0][1:1]alphamerge,setpts=2.0*PTS -pix_fmt rgba -compression_level ' + str(pngCompressionLevel) + ' "' + output + '"', shell=True, stderr=subprocess.PIPE)
+                        encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -i ' + '"' + job.path + '"' + ' -y -filter_complex [0:0][1:1]alphamerge,setpts=2.0*PTS -pix_fmt rgba -compression_level ' + str(pngCompressionLevel) + ' "' + output + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si)
                     else:
-                        encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -y -pix_fmt rgba -filter:v setpts=2.0*PTS -compression_level ' + str(pngCompressionLevel) + ' "' + output + '"', shell=True, stderr=subprocess.PIPE)
+                        encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -y -pix_fmt rgba -filter:v setpts=2.0*PTS -compression_level ' + str(pngCompressionLevel) + ' "' + output + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si)
 
                 elif job.format.currentText() == 'PASS-THROUGH':
                     encode = None
@@ -168,10 +170,11 @@ class Encoder(QtCore.QThread):
                         shutil.move(target, dest)
                         self.jobDone(job)
                 except Exception:
-                    print('couldn\'t move files')
+                    pass
+                    #print('couldn\'t move files')
 
             #time.sleep(1)
-        print('encoder done')
+        #print('encoder done')
 
     def extendSequence(self, job):
         lastFrame = sorted(job.content)[-1]
@@ -212,5 +215,5 @@ class Encoder(QtCore.QThread):
                     height += 1
             return str(width) + 'x' + str(height)
         except Exception:
-            print('failed to re-calculate resolution')
+            #print('failed to re-calculate resolution')
             return None

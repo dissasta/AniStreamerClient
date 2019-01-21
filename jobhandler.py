@@ -11,6 +11,9 @@ videoAssetTypes = ['.ani', '.mov', '.mpeg', '.mpg', '.mkv', '.avi', '.mp4', '.wm
 archiveAssetTypes = ['.zip', '.tar', '.rar', '.7z']
 alphaTags = ['rgba', 'brga', 'bgra']
 
+si = subprocess.STARTUPINFO()
+si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+
 if not unRARPresent:
     archiveAssetTypes.remove('.rar')
 if not sevenZipPresent:
@@ -186,7 +189,7 @@ class Archive(Asset):
 
     def unpack(self, tempFolder, signal):
         if self.ext.lower() == '.zip':
-            print('here')
+            #print('here')
             try:
                 with zipfile.ZipFile(self.path, 'r') as zip:
                     self.fileCount = len(zip.infolist())
@@ -199,7 +202,8 @@ class Archive(Asset):
                     signal.emit(self, 7, 'EXTRACTED')
 
             except Exception:
-                print('Bad ZIP File')
+                pass
+                #print('Bad ZIP File')
 
         elif self.ext.lower() == '.rar':
             try:
@@ -214,7 +218,8 @@ class Archive(Asset):
                     signal.emit(self, 7, 'EXTRACTED')
 
             except Exception:
-                print('Bad RAR File')
+                pass
+                #print('Bad RAR File')
 
         elif self.ext.lower() == '.tar':
             try:
@@ -229,7 +234,8 @@ class Archive(Asset):
                     signal.emit(self, 7, 'EXTRACTED')
 
             except Exception:
-                print('Bad TAR File')
+                pass
+                #print('Bad TAR File')
 
         elif self.ext.lower() == '.7z':
             try:
@@ -244,7 +250,8 @@ class Archive(Asset):
                     signal.emit(self, 7, 'EXTRACTED')
 
             except Exception:
-                print('Bad TAR File')
+                pass
+                #print('Bad TAR File')
 
 class JobScanner(QtCore.QThread):
     new_signal = QtCore.pyqtSignal(object)
@@ -384,7 +391,8 @@ class JobScanner(QtCore.QThread):
             hh, mm, ss, ms = re.findall('\d+', job.duration)
             job.frameCount = round(float(((int(hh) * 60 * 60) + (int(mm) * 60) + int(ss)) * job.fps + (int(ms) * 10 / (1000/job.fps))))
         except Exception:
-            print('not a proper duration')
+            pass
+            #print('not a proper duration')
 
     def scanAssets(self, items):
         #print("scanning")
@@ -402,7 +410,7 @@ class JobScanner(QtCore.QThread):
                 counter = 0
                 for i in job.content:
                     file = os.path.join(job.path, i)
-                    metadata = subprocess.Popen(['ffmpeg', '-i', file, '-hide_banner'], stderr=subprocess.PIPE)
+                    metadata = subprocess.Popen(['ffmpeg', '-i', file, '-hide_banner'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si)
                     out, err = metadata.communicate()
                     err = err.decode('utf-8')
 
@@ -413,7 +421,7 @@ class JobScanner(QtCore.QThread):
                     if not job.isTGA:
                         if job.content[0].split('.')[-1].lower() == 'tga' and "Video: targa" in err:
                             job.isTGA = True
-                            print('mamytarge')
+                            #print('mamytarge')
 
                     alpha = any(x in err for x in alphaTags)
                     if not alpha:
@@ -453,7 +461,7 @@ class JobScanner(QtCore.QThread):
 
             elif job.type == 'Still':
                 file = job.path
-                metadata = subprocess.Popen(['ffmpeg', '-i', file, '-hide_banner'], stderr=subprocess.PIPE)
+                metadata = subprocess.Popen(['ffmpeg', '-i', file, '-hide_banner'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si)
                 out, err = metadata.communicate()
                 err = err.decode('utf-8')
                 if not 'decoding for stream 0 failed' in err:
@@ -496,7 +504,7 @@ class JobScanner(QtCore.QThread):
 
             elif job.type == 'Video':
                 file = job.path
-                metadata = subprocess.Popen(['ffmpeg', '-i', file, '-hide_banner'], stderr=subprocess.PIPE)
+                metadata = subprocess.Popen(['ffmpeg', '-i', file, '-hide_banner'], stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si)
                 out, err = metadata.communicate()
                 err = err.decode('utf-8')
                 aniCondition = re.findall('Stream #0:0\[\S+\]: Video', err) and re.findall('Stream #0:1\[\S+\]: Video', err)
@@ -517,7 +525,8 @@ class JobScanner(QtCore.QThread):
                                     job.fps = float(entry.split(' ')[0])
                                     break
                                 except Exception:
-                                    print('FPS count not a float')
+                                    pass
+                                    #print('FPS count not a float')
 
                     job.duration = re.findall('(\Duration: \S+),', err)[0].split(' ')[1]
 

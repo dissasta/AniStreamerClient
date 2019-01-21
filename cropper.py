@@ -61,10 +61,12 @@ class MyLabel(QLabel):
         self.cropSize = [self.crop.x, self.crop.y, self.crop.w, self.crop.h]
 
     def enterEvent(self, event):
-        print('mouse')
+        pass
+        #print('mouse')
 
     def leaveEvent(self, event):
-        print('eft')
+        pass
+        #print('eft')
 
 class Cropper(QMainWindow):
     def __init__(self, parent, job):
@@ -98,6 +100,7 @@ class Cropper(QMainWindow):
         self.layTop.addWidget(self.scrollArea)
         self.lay.addLayout(self.layTop)
         self.lay.addLayout(self.layBottom)
+        self.font = QtGui.QFont('SansSerif', 12)
 
         if self.job.type == 'Still':
             imageData = open(job.path, 'rb')
@@ -127,21 +130,21 @@ class Cropper(QMainWindow):
             self.sl.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
             self.minWidth = 680
 
-        self.vertSpacer = QSpacerItem(20, 0)
-        font = QtGui.QFont('SansSerif', 12)
-        self.layBottom.addItem(self.vertSpacer)
+            self.vertSpacer = QSpacerItem(20, 0)
+            self.layBottom.addItem(self.vertSpacer)
 
-        self.tcLabel = QLabel()
-        self.tcLabel.setText('00:00:00.01')
-        self.tcLabel.setStyleSheet("color: white")
-        self.tcLabel.setFont(font)
-        self.layBottom.addWidget(self.tcLabel)
 
-        self.layBottom.addItem(self.vertSpacer)
+            self.tcLabel = QLabel()
+            self.tcLabel.setText('00:00:00.01')
+            self.tcLabel.setStyleSheet("color: white")
+            self.tcLabel.setFont(self.font)
+            self.layBottom.addWidget(self.tcLabel)
+
+            self.layBottom.addItem(self.vertSpacer)
 
         self.coordinateLabels =  [QLabel(x) for x in ["<font color='grey'>X:</font>", "<font color='grey'>Y:</font>", "<font color='grey'>W:</font>", "<font color='grey'>H:</font>"]]
         self.coordinateEntry = [QLineEdit(x) for x in ['0', '0', '0', '0']]
-        [x.setFont(font) for x in self.coordinateLabels]
+        [x.setFont(self.font) for x in self.coordinateLabels]
         for i in range(4):
             self.layBottom.addWidget(self.coordinateLabels[i])
             self.layBottom.addWidget(self.coordinateEntry[i])
@@ -271,4 +274,5 @@ class Cropper(QMainWindow):
             self.label.setPixmap(pixmap)
 
         except Exception:
-            print('something went wrong')
+            pass
+            #print('something went wrong')
