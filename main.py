@@ -3,25 +3,20 @@ from PyQt5 import QtGui
 from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QLabel, QPushButton, QTreeWidget, QCheckBox, QComboBox, QLineEdit
 from PyQt5 import QtWidgets
 from PyQt5.QtCore import Qt, QTimer, QSize, QRect, QRectF
-from config import Config, toolCheck
 from comms import *
 from jobhandler import *
+from config import *
 from cropper import *
-
-ffmpegPresent = False
-serverIP = '192.168.0.33'
-serverPort = 6666
-buffSize = 1024
-tempDir = 'e:\\Tools\\TEMP'
-outputDir = 'e:\\Tools\\OUTPUT'
-extendAni = True
-aniQFactor = 1
-pngCompressionLevel = 100
-movCompressionLevel = 2000
 
 """
 TODO:
 -7zip implementation
+-Improve folder scanner
+-Implement TGA-RLE imports
+-Implement TGA header reading from binary
+-Re-implement Alpha scanning using binary headers
+-Implement config .ini
+-Implement asset splitting into separate outputs
 """
 
 class JobHandlerWidget(QWidget):
@@ -36,6 +31,7 @@ class JobHandlerWidget(QWidget):
         self.jobsReady = False
         self.jobsDone = False
         self.cropper = None
+        self.counter = 0
         #self.setAcceptDrops(True)
         self.initUI()
 
@@ -73,7 +69,7 @@ class JobHandlerWidget(QWidget):
         self.show()
 
     def scanJobs(self, assets):
-        self.jobHandlerThread = JobScanner(assets)
+        self.jobHandlerThread = JobScanner(self, assets)
         self.jobHandlerThread.new_signal.connect(self.createEntry)
         self.jobHandlerThread.new_signal2.connect(self.updateEntry)
         #self.jobHandlerThread.jobsReadySignal.connect(self.updateJobsReady)
@@ -220,8 +216,11 @@ class JobHandlerWidget(QWidget):
 
     def edit(self):
         job = self.sender().parent
-        self.cropper = Cropper(job)
-
+        if not self.cropper:
+            self.cropper = Cropper(self, job)
+        else:
+            self.cropper.close()
+            self.cropper = Cropper(self, job)
 
     def runAllJobs(self):
         print('runrunrun')
@@ -236,8 +235,8 @@ class JobHandlerWidget(QWidget):
         job.widgetItem.setText(column, text)
 
     def closeEvent(self, e):
-        e.ignore()
-        self.destroy()
+        self.close()
+        self.cropper.close()
 
     def dragEnterEvent(self, e):
         if e.mimeData().hasUrls() and ffmpegPresent:
@@ -276,7 +275,6 @@ class DropZone(QWidget):
         self.counter = 0
         def handler():
             self.counter += 1
-            print(self.counter)
             if self.counter >= self.fadeOffTime * 100:
                 self.setWindowOpacity(self.windowOpacity()-0.002)
                 if self.windowOpacity() <= 0:
@@ -373,7 +371,7 @@ class Client(QMainWindow):
         self.sysTray.setVisible(False)
 
     def initConfigMenu(self):
-        self.configMenu = Config(self)
+        self.configMenu = Config((self.geometry().left(), self.geometry().left()))
 
     def initDropZone(self):
         self.dropZone = DropZone(self)
@@ -426,6 +424,12 @@ class Client(QMainWindow):
         #self.configMenu.hide()
 
     def exit(self):
+        if os.path.exists(tempDir):
+            for i in os.listdir(tempDir):
+                try:
+                    shutil.rmtree(os.path.join(tempDir, i))
+                except Exception:
+                    pass
         sys.exit()
 
     def makeConnection(self):
@@ -439,7 +443,6 @@ class Client(QMainWindow):
             print('Couldn\'t connect')
 
 if __name__ == '__main__':
-    ffmpegPresent = toolCheck('ffmpeg.exe')
     app = QApplication(sys.argv)
     ex = Client()
     sys.exit(app.exec_())

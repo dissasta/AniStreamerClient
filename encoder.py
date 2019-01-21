@@ -13,31 +13,44 @@ class Encoder(QtCore.QThread):
         while self.jobs:
             #time.sleep(1)
             job = self.jobs.pop(0)
-            print(job, job.outFilename.text())
             job.runJob.setStyleSheet("background-color: rgb(50, 50, 50);color: orange;")
             job.runJob.setText('WORKING')
-            AniNewRes = self.calcNewRes(job)
             print(job.crop)
-            if AniNewRes:
-                hRes = AniNewRes.split('x')[0]
-                vRes = AniNewRes.split('x')[1]
-                vPad = str(int(AniNewRes.split('x')[1]) - int(job.resolution.split('x')[1]))
-                hPad = str(int(AniNewRes.split('x')[0]) - int(job.resolution.split('x')[0]))
+            AniNewRes = self.calcNewRes(job)
+            hRes = AniNewRes.split('x')[0]
+            vRes = AniNewRes.split('x')[1]
+            if not job.crop:
+                orgHRes = job.resolution.split('x')[0]
+                orgVRes = job.resolution.split('x')[1]
+                xPos = str(0)
+                yPos = str(0)
+                vPad = str(int(AniNewRes.split('x')[1]) - int(orgVRes))
+                hPad = str(int(AniNewRes.split('x')[0]) - int(orgHRes))
             else:
-                hRes = job.resolution.split('x')[0]
-                vRes = job.resolution.split('x')[1]
-                vPad = str(0)
-                hPad = str(0)
+                orgHRes = str(job.crop[2])
+                orgVRes = str(job.crop[3])
+                xPos = str(job.crop[0])
+                yPos = str(job.crop[1])
+                vPad = str(int(AniNewRes.split('x')[1]) - int(job.crop[3]))
+                hPad = str(int(AniNewRes.split('x')[0]) - int(job.crop[2]))
+
+            print('orgHRes', orgHRes)
+            print('orgVRes', orgVRes)
+            print('x', xPos)
+            print('y', yPos)
+            print('hRes', hRes)
+            print('vRes', vRes)
+            print('hPad', hPad)
+            print('vPad', vPad)
 
             if job.type == 'Still':
                 target = os.path.join(tempDir, job.outFilename.text())
                 if job.format.currentText() == 'ANI':
                     target = target + '.ani'
-                    encode = subprocess.Popen('ffmpeg -loop 1 -i ' + '"' + job.path + '"' + ' -filter_complex "[0:0]pad=width=' + hRes + ':height=' + vRes + ':x=' + hPad +':y=' + vPad + ':color=black[fill];[0:0]alphaextract,pad=width=' + hRes + ':height=' + vRes + ':x=' + hPad + ':y=' + vPad + ':color=black[key]" -y -vcodec mpeg2video -pix_fmt yuv422p -hide_banner -map "[fill]" -map "[key]" -q:v ' + str(aniQFactor) + ' -b:v 5000k -f vob -t 4 ' + '"' + target + '"', shell=True, stderr=subprocess.PIPE)
-
+                    encode = subprocess.Popen('ffmpeg -loop 1 -i ' + '"' + job.path + '"' + ' -filter_complex "[0:0]crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + ',pad=width=' + hRes + ':height=' + vRes + ':x=' + hPad +':y=' + vPad + ':color=black[fill];[0:0]alphaextract,crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + ',pad=width=' + hRes + ':height=' + vRes + ':x=' + hPad + ':y=' + vPad + ':color=black[key]" -y -vcodec mpeg2video -pix_fmt yuv422p -hide_banner -map "[fill]" -map "[key]" -q:v ' + str(aniQFactor) + ' -b:v 5000k -f vob -t 4 ' + '"' + target + '"', shell=True, stderr=subprocess.PIPE)
                 elif job.format.currentText() == 'MOV':
                     target = target + '.mov'
-                    encode = subprocess.Popen('ffmpeg -loop 1 -i ' + '"' + job.path + '"' + ' -y -t 4 -pix_fmt argb -vcodec qtrle -an ' + '"' + target + '"', shell=True, stderr=subprocess.PIPE)
+                    encode = subprocess.Popen('ffmpeg -loop 1 -i ' + '"' + job.path + '"' + ' -y -t 4 -filter_complex "[0:0]crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + '" -pix_fmt argb -vcodec qtrle -an ' + '"' + target + '"', shell=True, stderr=subprocess.PIPE)
 
                 elif job.format.currentText() == 'PASS-THROUGH':
                     encode = None
@@ -46,11 +59,11 @@ class Encoder(QtCore.QThread):
 
                 elif job.format.currentText() == 'TGA':
                     target = target + '.tga'
-                    encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -y -pix_fmt bgra -coder raw ' + '"' + target + '"', shell=True, stderr=subprocess.PIPE)
+                    encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -y -filter_complex "[0:0]crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + '" -pix_fmt bgra -coder raw ' + '"' + target + '"', shell=True, stderr=subprocess.PIPE)
 
                 elif job.format.currentText() == 'PNG':
                     target = target + '.png'
-                    encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -y -pix_fmt rgba -compression_level ' + str(pngCompressionLevel) + ' "' + target + '"', shell=True, stderr=subprocess.PIPE)
+                    encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -y -filter_complex "[0:0]crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + '" -pix_fmt rgba -compression_level ' + str(pngCompressionLevel) + ' "' + target + '"', shell=True, stderr=subprocess.PIPE)
 
                 if encode:
                     out = encode.communicate()
@@ -64,18 +77,18 @@ class Encoder(QtCore.QThread):
                     if extendAni:
                         self.extendSequence(job)
                     target = target + '.ani'
-                    encode = subprocess.Popen('ffmpeg -start_number ' + job.firstFrame + ' -i ' + '"' + source + '"' + ' -filter_complex "[0:0]pad=width=' + hRes + ':height=' + vRes + ':x=' + hPad +':y=' + vPad + ':color=black[fill];[0:0]alphaextract,pad=width=' + hRes + ':height=' + vRes + ':x=' + hPad + ':y=' + vPad + ':color=black[key]" -y -vcodec mpeg2video -pix_fmt yuv422p -hide_banner -map "[fill]" -map "[key]" -q:v ' + str(aniQFactor) + ' -b:v 5000k -f vob ' + '"' + target + '"', shell=True, stderr=subprocess.PIPE)
+                    encode = subprocess.Popen('ffmpeg -start_number ' + job.firstFrame + ' -i ' + '"' + source + '"' + ' -filter_complex "[0:0]crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + ',pad=width=' + hRes + ':height=' + vRes + ':x=' + hPad +':y=' + vPad + ':color=black[fill];[0:0]alphaextract,crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + ',pad=width=' + hRes + ':height=' + vRes + ':x=' + hPad + ':y=' + vPad + ':color=black[key]" -y -vcodec mpeg2video -pix_fmt yuv422p -hide_banner -map "[fill]" -map "[key]" -q:v ' + str(aniQFactor) + ' -b:v 5000k -f vob ' + '"' + target + '"', shell=True, stderr=subprocess.PIPE)
 
                 elif job.format.currentText() == 'MOV':
                     target = target + '.mov'
-                    encode = subprocess.Popen('ffmpeg -start_number ' + job.firstFrame + ' -i ' + '"' + source + '"' + ' -y -pix_fmt argb -vcodec qtrle -an ' + '"' + target + '"', shell=True, stderr=subprocess.PIPE)
+                    encode = subprocess.Popen('ffmpeg -start_number ' + job.firstFrame + ' -i ' + '"' + source + '"' + ' -y -filter_complex "[0:0]crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + '" -pix_fmt argb -vcodec qtrle -an ' + '"' + target + '"', shell=True, stderr=subprocess.PIPE)
 
                 elif job.format.currentText() == "PNG SEQUENCE 2xFPS":
                     target = os.path.join(tempDir, job.outFilename.text())
                     if not os.path.exists(target):
                         os.mkdir(target)
                     output = os.path.join(target, job.outFilename.text() + '_%05d.png')
-                    encode = subprocess.Popen('ffmpeg -start_number ' + job.firstFrame + ' -i ' + '"' + source + '"' + ' -y -pix_fmt rgba -filter:v setpts=2.0*PTS -compression_level ' + str(pngCompressionLevel) + ' "' + output + '"', shell=True, stderr=subprocess.PIPE)
+                    encode = subprocess.Popen('ffmpeg -start_number ' + job.firstFrame + ' -i ' + '"' + source + '"' + ' -y -filter_complex "[0:0]crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + ', setpts=2.0*PTS" -pix_fmt rgba -compression_level ' + str(pngCompressionLevel) + ' "' + output + '"', shell=True, stderr=subprocess.PIPE)
 
                 out = encode.communicate()
 
@@ -183,12 +196,20 @@ class Encoder(QtCore.QThread):
 
     def calcNewRes(self, job):
         try:
-            width = int(job.resolution.split('x')[0])
-            height = int(job.resolution.split('x')[1])
-            while width % 16 != 0:
-                width += 1
-            while height % 16 != 0:
-                height += 1
+            if not job.crop:
+                width = int(job.resolution.split('x')[0])
+                height = int(job.resolution.split('x')[1])
+                while width % 16 != 0:
+                    width += 1
+                while height % 16 != 0:
+                    height += 1
+            else:
+                width = int(job.crop[2])
+                height = int(job.crop[3])
+                while width % 16 != 0:
+                    width += 1
+                while height % 16 != 0:
+                    height += 1
             return str(width) + 'x' + str(height)
         except Exception:
             print('failed to re-calculate resolution')

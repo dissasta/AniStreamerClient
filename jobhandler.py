@@ -1,20 +1,19 @@
 import random, re, zipfile, subprocess, os, time, shutil, rarfile, tarfile
-from config import toolCheck
 from main import *
 from encoder import *
+from config import *
 from string import ascii_uppercase, digits
 from PyQt5 import QtCore
 from PyQt5.QtWidgets import QTreeWidget, QTreeWidgetItem, QApplication, QWidget
-import threading
 
 sequenceAssetTypes = ['.tga', '.png']
 videoAssetTypes = ['.ani', '.mov', '.mpeg', '.mpg', '.mkv', '.avi', '.mp4', '.wmv', '.m2v', '.mxf']
 archiveAssetTypes = ['.zip', '.tar', '.rar', '.7z']
 alphaTags = ['rgba', 'brga', 'bgra']
 
-if not toolCheck('UnRAR.exe'):
+if not unRARPresent:
     archiveAssetTypes.remove('.rar')
-if not toolCheck('7z.exe'):
+if not sevenZipPresent:
     archiveAssetTypes.remove('.7z')
 
 class Asset(object):
@@ -252,9 +251,10 @@ class JobScanner(QtCore.QThread):
     new_signal2 = QtCore.pyqtSignal(object, int, str)
     #jobsReadySignal = QtCore.pyqtSignal(int)
     progressBar = QtCore.pyqtSignal(str, int, int, bool)
-    def __init__(self, assets):
+    def __init__(self, parent, assets):
         QtCore.QThread.__init__(self)
         self.assets = assets
+        self.parent = parent
         self.sequences = []
         self.newArchives = []
         self.newStills = []
@@ -270,7 +270,7 @@ class JobScanner(QtCore.QThread):
         self.encoder = None
 
     def run(self):
-        self.createTempFolder()
+        self.createFolders()
         while True:
             while self.assets:
                 for i in range(len(self.assets)):
@@ -296,9 +296,11 @@ class JobScanner(QtCore.QThread):
                 for job in i.jobs:
                     print(job.outFilename.text())
 
-    def createTempFolder(self):
+    def createFolders(self):
         if not os.path.exists(tempDir):
             os.mkdir(tempDir)
+        if not os.path.exists(outputDir):
+            os.mkdir(outputDir)
 
     def scanStructure(self, asset):
         #scan individual folders internal structure and extract separate folder paths
@@ -653,7 +655,6 @@ class JobScanner(QtCore.QThread):
 
         for job in toRemove:
             self.removeJobFromList(job)
-
 
 class Job(object):
     jobs = []

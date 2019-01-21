@@ -12,6 +12,7 @@ class MyLabel(QLabel):
         self.begin = QtCore.QPoint()
         self.end = QtCore.QPoint()
         self.crop = QLabel(self)
+        self.crop.setGeometry(0,0,0,0)
         self.crop.setStyleSheet("background-color: rgba(100, 0, 0, 40);border: 1px inset black")
 
     def getPos(self, event):
@@ -66,10 +67,11 @@ class MyLabel(QLabel):
         print('eft')
 
 class Cropper(QMainWindow):
-    def __init__(self, job):
-        QMainWindow.__init__(self)
+    def __init__(self, parent, job):
+        QMainWindow.__init__(self, parent)
         self.targaLabel = 'TRUEVISION-XFILE. '
         self.readable = None
+        self.parent = parent
         self.job = job
         self.sl = None
         self.minWidth = None
@@ -180,7 +182,7 @@ class Cropper(QMainWindow):
             self.setFixedHeight(self.lay.sizeHint().height())
 
         if self.sl:
-            self.sl.setFixedWidth(self.geometry().width()/2)
+            self.sl.setFixedWidth(self.geometry().width()/3)
 
         self.show()
 
@@ -192,6 +194,13 @@ class Cropper(QMainWindow):
         self.coordinateEntry[3].setValidator(self.yhValidator)
 
         self.label.coordSignal.connect(self.updateCoords)
+
+        if self.job.crop:
+            self.coordinateEntry[0].setText(str(self.job.crop[0]))
+            self.coordinateEntry[1].setText(str(self.job.crop[1]))
+            self.coordinateEntry[2].setText(str(self.job.crop[2]))
+            self.coordinateEntry[3].setText(str(self.job.crop[3]))
+            self.label.crop.setGeometry(self.job.crop[0], self.job.crop[1], self.job.crop[2], self.job.crop[3])
         #print('mainlayout', self.lay.sizeHint())
         #print('toplayout', self.layTop.sizeHint())
         #print('bottomlayout', self.layBottom.sizeHint())
@@ -206,9 +215,6 @@ class Cropper(QMainWindow):
         self.coordinateEntry[2].setText(str(w))
         self.coordinateEntry[3].setText(str(h))
         self.job.crop = [x, y, w, h]
-
-    def mouseMoveEvent(self, event):
-        print('Mouse coords: ( %d : %d )' % (event.x(), event.y()))
 
     def loadImageFromBin(self, imageData):
         barray = QtCore.QByteArray()
@@ -245,7 +251,6 @@ class Cropper(QMainWindow):
             self.job.crop = [int(coords[0]), int(coords[1]), int(coords[2]), int(coords[3])]
 
     def updateTC(self, frames):
-        print(frames)
         hh = int(frames / 60 / 60 / self.job.fps)
         mm = int(frames / 60 / self.job.fps) - (hh * 60)
         ss = int(frames / self.job.fps) - (mm * 60) - (hh * 60 * 60)
@@ -267,4 +272,3 @@ class Cropper(QMainWindow):
 
         except Exception:
             print('something went wrong')
-
