@@ -1,8 +1,8 @@
 import sys, os, ctypes, socket, threading, subprocess
 from PyQt5 import QtGui
-from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QLabel, QPushButton, QTreeWidget, QCheckBox, QComboBox, QLineEdit
+from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QLabel, QPushButton, QTreeWidget, QCheckBox, QComboBox, QLineEdit, QMessageBox
 from PyQt5 import QtWidgets
-from PyQt5.QtCore import Qt, QTimer, QSize, QRect, QRectF
+from PyQt5.QtCore import Qt, QTimer, QSize, QRect, QRectF, QLockFile, QDir
 from comms import *
 from jobhandler import *
 from config import *
@@ -17,6 +17,7 @@ TODO:
 -Re-implement Alpha scanning using binary headers
 -Implement config .ini
 -Implement asset splitting into separate outputs
+-implement workaround for Windows scaling
 """
 
 class JobHandlerWidget(QWidget):
@@ -63,7 +64,7 @@ class JobHandlerWidget(QWidget):
         self.tree.setColumnWidth(12, 32)
         for column in range(2,13):
             self.tree.header().setSectionResizeMode(column, QtWidgets.QHeaderView.Fixed)
-        self.setWindowIcon(QtGui.QIcon('import.png'))
+        self.setWindowIcon(QtGui.QIcon(os.path.join(imageDir,'import.png')))
         self.tree.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         self.tree.header().setSectionsMovable(False)
         self.show()
@@ -240,6 +241,12 @@ class JobHandlerWidget(QWidget):
         if self.jobHandlerThread.isRunning():
             self.jobHandlerThread.terminate()
             self.jobHandlerThread.wait()
+        for folder in self.jobHandlerThread.tempArchiveFolders:
+            if os.path.exists(folder):
+                try:
+                    shutil.rmtree(folder)
+                except Exception:
+                    pass
 
     def dragEnterEvent(self, e):
         if e.mimeData().hasUrls() and ffmpegPresent:
@@ -249,7 +256,7 @@ class JobHandlerWidget(QWidget):
 
     def dropEvent(self, e):
         assets = [u.toLocalFile() for u in e.mimeData().urls()]
-        for asset in assets:
+        for asset in sorted(assets):
             self.jobHandlerThread.assets.append(asset)
 
 class DropZone(QWidget):
@@ -262,11 +269,12 @@ class DropZone(QWidget):
         self.left = ctypes.windll.user32.GetSystemMetrics(0) - self.width - 20
         self.top = ctypes.windll.user32.GetSystemMetrics(1) - self.height - 40
         self.initUI()
+        self.jobHandlerWidgets = []
 
     def initUI(self):
         self.setGeometry(self.left, self.top, self.width, self.height)
         self.setWindowFlags(Qt.FramelessWindowHint|Qt.Tool|Qt.WindowStaysOnTopHint)
-        bgImage = QtGui.QImage("dropzone.png")
+        bgImage = QtGui.QImage(os.path.join(imageDir,"dropzone.png"))
         bgImage = bgImage.scaled(QSize(self.width, self.height))
         p = self.palette()
         #p.setColor(self.backgroundRole(), Qt.darkBlue)
@@ -303,19 +311,19 @@ class DropZone(QWidget):
             e.ignore()
 
     def initJobHandlerWidget(self):
-        self.jobHandlerWidget = JobHandlerWidget()
+        self.jobHandlerWidgets.append(JobHandlerWidget())
+        return self.jobHandlerWidgets[-1]
 
     def dropEvent(self, e):
         assets = [u.toLocalFile() for u in e.mimeData().urls()]
-        self.initJobHandlerWidget()
-        self.jobHandlerWidget.scanJobs(assets)
+        widget = self.initJobHandlerWidget()
+        widget.scanJobs(assets)
 
     def closeEvent(self, e):
         e.ignore()
         self.hide()
 
 class Client(QMainWindow):
-    socket = None
     def __init__(self):
         super().__init__()
 
@@ -336,6 +344,7 @@ class Client(QMainWindow):
         self.senderThread = Sender(self.socket)
         self.senderThread.start()
         self.show()
+        self.removeTemps()
 
     def initUI(self):
         self.setWindowTitle(self.title)
@@ -346,7 +355,7 @@ class Client(QMainWindow):
         p.setColor(self.backgroundRole(), QtGui.QColor(60, 63, 65))
         self.setPalette(p)
         self.setAcceptDrops(True)
-        self.setWindowIcon(QtGui.QIcon('icon.png'))
+        self.setWindowIcon(QtGui.QIcon(os.path.join(imageDir, 'icon.png')))
 
     def initBAR(self):
         bar = self.menuBar()
@@ -354,7 +363,7 @@ class Client(QMainWindow):
         fileMenu = bar.addMenu('File')
         connectAction = QtWidgets.QAction('Connect', self)
         fileMenu.addAction(connectAction)
-        connectAction.triggered.connect(self.makeConnection)
+        #connectAction.triggered.connect(self.makeConnection)
         configAction = QtWidgets.QAction('Config', self)
         fileMenu.addAction(configAction)
         configAction.triggered.connect(lambda: self.configMenu.show())
@@ -364,7 +373,7 @@ class Client(QMainWindow):
 
     def initIcon(self):
         self.sysTray = QtWidgets.QSystemTrayIcon(self)
-        self.sysTray.setIcon(QtGui.QIcon('icon.png'))
+        self.sysTray.setIcon(QtGui.QIcon(os.path.join(imageDir,'icon.png')))
         self.sysTrayMenu = QtWidgets.QMenu(self)
         showAction = self.sysTrayMenu.addAction("Show")
         showAction.triggered.connect(self.mainPopUp)
@@ -427,13 +436,15 @@ class Client(QMainWindow):
         #self.configMenu.hide()
 
     def exit(self):
+        sys.exit()
+
+    def removeTemps(self):
         if os.path.exists(tempDir):
             for i in os.listdir(tempDir):
                 try:
                     shutil.rmtree(os.path.join(tempDir, i))
                 except Exception:
                     pass
-        sys.exit()
 
     def makeConnection(self):
         try:
@@ -447,5 +458,16 @@ class Client(QMainWindow):
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
-    ex = Client()
-    sys.exit(app.exec_())
+    app.setQuitOnLastWindowClosed(False)
+    lockFile = QLockFile(appDir + "/key.lock")
+    if lockFile.tryLock(100) != True:
+        msg = QMessageBox()
+        msg.setIcon(QMessageBox.Warning)
+        msg.setWindowTitle('WARNING')
+        msg.setText("You already have this app running.")
+        msg.exec()
+        app.quit()
+        sys.exit()
+    else:
+        ex = Client()
+        sys.exit(app.exec_())

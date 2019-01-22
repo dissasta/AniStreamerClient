@@ -293,7 +293,7 @@ class JobScanner(QtCore.QThread):
                 self.handleArchives()
 
             for folder in self.allFolders:
-                self.scanAssets(folder.jobs)
+                  self.scanAssets(folder.jobs)
             self.scanAssets(self.allStills)
             self.scanAssets(self.allVideos)
             self.ready = True
@@ -314,31 +314,32 @@ class JobScanner(QtCore.QThread):
         #scan individual folders internal structure and extract separate folder paths
         if os.path.isdir(asset):
             walked = [[root, files] for root, folder, files in os.walk(asset)]
-            for entry in walked:
+            for entry in sorted(walked, reverse = True):
                 if not '_MACOSX' in entry[0]:
                     entry[0] = entry[0].replace('/', '\\')
-                    self.newFolders.append(Folder(entry[0]))
+                    self.newFolders.insert(0, Folder(entry[0]))
                     # scan again for rogue video and archive files
                     for file in entry[1]:
                         if any(file.lower().endswith(x) for x in archiveAssetTypes):
-                            self.newArchives.append(Archive(os.path.join(entry[0], file)))
+                            self.newArchives.insert(0, Archive(os.path.join(entry[0], file)))
                         #if any(file.lower().endswith(x) for x in videoAssetTypes):
                         #    self.newVideos.append(Video(os.path.join(entry[0], file)))
         #scan individual files for import
         elif os.path.isfile(asset):
             asset = asset.replace('/', '\\')
             if any(asset.lower().endswith(x) for x in videoAssetTypes):
-                self.newVideos.append(Video(asset))
+                self.newVideos.insert(0, Video(asset))
             elif any(asset.lower().endswith(x) for x in sequenceAssetTypes):
-                self.newStills.append(Still(asset))
+                self.newStills.insert(0, Still(asset))
             elif any(asset.lower().endswith(x) for x in archiveAssetTypes):
-                self.newArchives.append(Archive(asset))
+                self.newArchives.insert(0, Archive(asset))
 
     def handleArchives(self):
         #extract archives to TEMP folder
         for archive in self.newArchives:
             if not os.path.exists(archive.tempFolderPath):
                 os.mkdir(archive.tempFolderPath)
+            self.tempArchiveFolders.append(archive.tempFolderPath)
             self.new_signal.emit(archive)
 
         while self.newArchives:
@@ -466,7 +467,6 @@ class JobScanner(QtCore.QThread):
                                 job.valid = False
                                 break
 
-                    time.sleep(0.001)
                     counter += 1
                     percentage = int(100/(len(job.content)/counter))
                     self.new_signal2.emit(job, 3, str(percentage) + '%')
@@ -613,7 +613,7 @@ class JobScanner(QtCore.QThread):
                     file = file[:numSuffixIdx] + str(len(numSuffix)) + file[numSuffixIdx + len(numSuffix):]
                     prefixesFound.append((file, numSuffixIdx))
                 else:
-                    folder.jobs.append(Still(os.path.join(folder.path, file)))
+                    folder.jobs.insert(0, Still(os.path.join(folder.path, file)))
 
             prefixesFound = set(prefixesFound)
 
@@ -632,10 +632,10 @@ class JobScanner(QtCore.QThread):
                         else:
                             continue
 
-                    folder.jobs.append(Sequence(folder.path, list, newMatrix, gaps))
+                    folder.jobs.insert(0, Sequence(folder.path, list, newMatrix, gaps))
 
                 else:
-                    folder.jobs.append(Still(os.path.join(folder.path, list[0])))
+                    folder.jobs.insert(0, Still(os.path.join(folder.path, list[0])))
 
         folder.videos = [x for x in os.listdir(folder.path) if any(x.lower().endswith(y) for y in videoAssetTypes)]
 

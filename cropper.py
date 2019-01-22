@@ -131,7 +131,6 @@ class Cropper(QMainWindow):
             self.vertSpacer = QSpacerItem(20, 0)
             self.layBottom.addItem(self.vertSpacer)
 
-
             self.tcLabel = QLabel()
             self.tcLabel.setText('00:00:00.01')
             self.tcLabel.setStyleSheet("color: white")
