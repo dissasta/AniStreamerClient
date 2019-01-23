@@ -258,7 +258,7 @@ class JobScanner(QtCore.QThread):
     new_signal = QtCore.pyqtSignal(object)
     new_signal2 = QtCore.pyqtSignal(object, int, str)
     #jobsReadySignal = QtCore.pyqtSignal(int)
-    progressBar = QtCore.pyqtSignal(str, int, int, bool)
+    progressBar = QtCore.pyqtSignal(int, int, bool)
     def __init__(self, parent, assets):
         QtCore.QThread.__init__(self)
         self.assets = assets
@@ -667,6 +667,7 @@ class JobScanner(QtCore.QThread):
             if job.runJob.isEnabled():
                 self.encoder = Encoder(job)
                 self.encoder.start()
+                self.encoder.progressBarPass.connect(self.progressBarPass)
                 workedOn = True
 
         if workedOn:
@@ -694,6 +695,9 @@ class JobScanner(QtCore.QThread):
 
         for job in toRemove:
             self.removeJobFromList(job)
+
+    def progressBarPass(self, max, current, visible):
+        self.progressBar.emit(max, current, visible)
 
 class Job(object):
     jobs = []

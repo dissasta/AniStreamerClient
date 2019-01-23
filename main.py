@@ -1,4 +1,4 @@
-import sys, os, ctypes, socket, threading, subprocess
+import sys, os, ctypes, socket, tempfile
 from PyQt5 import QtGui
 from PyQt5.QtWidgets import QApplication, QWidget, QMainWindow, QLabel, QPushButton, QTreeWidget, QCheckBox, QComboBox, QLineEdit, QMessageBox
 from PyQt5 import QtWidgets
@@ -42,6 +42,7 @@ class JobHandlerWidget(QWidget):
         self.setMaximumSize(self.width, self.height)
         self.setAutoFillBackground(True)
         self.createGoButton()
+        self.createProgressBar()
         self.tree = QTreeWidget(self)
         self.tree.setAlternatingRowColors(True)
         self.tree.setSortingEnabled(True)
@@ -205,6 +206,15 @@ class JobHandlerWidget(QWidget):
         self.goButton.setEnabled(1)
         self.goButton.clicked.connect(lambda: self.runAllJobs())
 
+    def createProgressBar(self):
+        self.progressBar = QLabel(self)
+        self.progressBar.setStyleSheet("background-color: rgb(100, 100, 150);border: 1px inset black")
+        self.progressBar.move(10, self.height - 24)
+        self.progressBar.setFixedHeight(20)
+        self.progressBar.maxW = self.width - 100
+        self.progressBar.setFixedWidth(0)
+        self.progressBar.setVisible(False)
+
     def updateJobsReady(self, b):
         if b:
             self.jobsReady = True
@@ -228,8 +238,13 @@ class JobHandlerWidget(QWidget):
         #self.goButton.setStyleSheet("background-color: rgb(50, 50, 50);color: green;")
         self.jobHandlerThread.processAll()
 
-    def progressBarUpdate(self):
-        pass
+    def progressBarUpdate(self, max, current, visible):
+        progress = int(100/(max/current))
+        print(progress)
+        self.progressBar.setVisible(visible)
+        if progress <= 100:
+            self.progressBar.setFixedWidth((self.progressBar.maxW/100)*progress)
+        self.update()
 
     def updateEntry(self, job, column, text):
         job.widgetItem.setText(column, text)
@@ -459,7 +474,8 @@ class Client(QMainWindow):
 if __name__ == '__main__':
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
-    lockFile = QLockFile(appDir + "/key.lock")
+    lockFile = QLockFile(tempfile.gettempdir() + "/AniStreamer.lock")
+    print(tempfile.gettempdir())
     if lockFile.tryLock(100) != True:
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Warning)
