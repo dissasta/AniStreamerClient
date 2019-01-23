@@ -97,10 +97,13 @@ class Encoder(QtCore.QThread):
                 if encode:
                     out = ''
                     for line in encode.stderr:
-	                    out += line
-	                    frames = re.findall('frame= +\d+', line)
-	                    if frames:
-		                    self.progressBarPass.emit(int(len(job.content)), int(re.findall('\d+', frames[0])[0]), True)
+                        out += line
+                        frames = re.findall('frame= +\d+', line)
+                        if frames:
+                            if job.format.currentText() == "PNG SEQUENCE 2xFPS":
+                                self.progressBarPass.emit(int(len(job.content)) * 2, int(re.findall('\d+', frames[0])[0]), True)
+                            else:
+                                self.progressBarPass.emit(int(len(job.content)), int(re.findall('\d+', frames[0])[0]), True)
                     if "no such file or directory" in out:
                         self.jobFailed(job)
 
@@ -163,10 +166,13 @@ class Encoder(QtCore.QThread):
                 if encode:
                     out = ''
                     for line in encode.stderr:
-	                    out += line
-	                    frames = re.findall('frame= +\d+', line)
-	                    if frames:
-		                    self.progressBarPass.emit(int(job.frameCount), int(re.findall('\d+', frames[0])[0]), True)
+                        out += line
+                        frames = re.findall('frame= +\d+', line)
+                        if frames:
+                            if job.format.currentText() == 'PNG SEQUENCE 2xFPS':
+                                self.progressBarPass.emit(int(job.frameCount) * 2, int(re.findall('\d+', frames[0])[0]), True)
+                            else:
+                                self.progressBarPass.emit(int(job.frameCount), int(re.findall('\d+', frames[0])[0]), True)
                     if "no such file or directory" in out:
                         self.jobFailed(job)
 

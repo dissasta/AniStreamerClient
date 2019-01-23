@@ -240,7 +240,6 @@ class JobHandlerWidget(QWidget):
 
     def progressBarUpdate(self, max, current, visible):
         progress = int(100/(max/current))
-        print(progress)
         self.progressBar.setVisible(visible)
         if progress <= 100:
             self.progressBar.setFixedWidth((self.progressBar.maxW/100)*progress)
