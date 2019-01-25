@@ -382,8 +382,8 @@ class JobScanner(QtCore.QThread):
         if job.type == 'Video' and job.frameCount:
             frames = job.frameCount
             hh = int(frames/60/60/job.fps)
-            mm = int((frames/60/job.fps) - (hh*60))
-            ss = int((frames/job.fps) - (mm*60) - (hh*60* 60))
+            mm = int(frames/60/job.fps) - (hh*60)
+            ss = int(frames/job.fps) - (mm*60) - (hh*60* 60)
             ff = round(float(frames - (ss*job.fps) - (mm*60*job.fps) - (hh*60*60*job.fps)))
             string = '%02d:%02d:%02d.%02d' % (hh, mm, ss, ff)
             return(str(string))
@@ -538,7 +538,7 @@ class JobScanner(QtCore.QThread):
                 out, err = metadata.communicate()
                 err = err.decode('utf-8')
                 aniCondition = re.findall('Stream #0:0\[\S+\]: Video', err) and re.findall('Stream #0:1\[\S+\]: Video', err)
-                if re.findall('Stream #0:0\(\S+\): Video', err) or re.findall('Stream #0:0: Video', err) or aniCondition:
+                if re.findall('Stream #0:0\(\S+\): Video|Stream #0:0: Video|Stream #0:1\(\S+\): Video', err) or aniCondition:
                     job.valid = True
                     alpha = any(x in err for x in alphaTags)
 

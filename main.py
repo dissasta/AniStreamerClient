@@ -243,7 +243,6 @@ class JobHandlerWidget(QWidget):
         self.progressBar.setVisible(visible)
         if progress <= 100:
             self.progressBar.setFixedWidth((self.progressBar.maxW/100)*progress)
-        self.update()
 
     def updateEntry(self, job, column, text):
         job.widgetItem.setText(column, text)
@@ -474,7 +473,6 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(False)
     lockFile = QLockFile(tempfile.gettempdir() + "/AniStreamer.lock")
-    print(tempfile.gettempdir())
     if lockFile.tryLock(100) != True:
         msg = QMessageBox()
         msg.setIcon(QMessageBox.Warning)

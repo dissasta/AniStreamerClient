@@ -69,7 +69,12 @@ class Encoder(QtCore.QThread):
                     encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -y -filter_complex "[0:0]crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + '" -pix_fmt rgba -compression_level ' + str(pngCompressionLevel) + ' "' + target + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si, universal_newlines=True)
 
                 if encode:
-                    out = encode.communicate()
+                    out = ''
+                    for line in encode.stderr:
+                        out += line
+                        frames = re.findall('frame= +\d+', line)
+                        if frames:
+                            self.progressBarPass.emit(50, int(re.findall('\d+', frames[0])[0]), True)
                     if "no such file or directory" in out:
                         self.jobFailed(job)
 
@@ -101,7 +106,7 @@ class Encoder(QtCore.QThread):
                         frames = re.findall('frame= +\d+', line)
                         if frames:
                             if job.format.currentText() == "PNG SEQUENCE 2xFPS":
-                                self.progressBarPass.emit(int(len(job.content)) * 2, int(re.findall('\d+', frames[0])[0]), True)
+                                self.progressBarPass.emit((int(len(job.content)) * 2) - 1, int(re.findall('\d+', frames[0])[0]), True)
                             else:
                                 self.progressBarPass.emit(int(len(job.content)), int(re.findall('\d+', frames[0])[0]), True)
                     if "no such file or directory" in out:
@@ -170,7 +175,7 @@ class Encoder(QtCore.QThread):
                         frames = re.findall('frame= +\d+', line)
                         if frames:
                             if job.format.currentText() == 'PNG SEQUENCE 2xFPS':
-                                self.progressBarPass.emit(int(job.frameCount) * 2, int(re.findall('\d+', frames[0])[0]), True)
+                                self.progressBarPass.emit((int(job.frameCount) * 2) - 1, int(re.findall('\d+', frames[0])[0]), True)
                             else:
                                 self.progressBarPass.emit(int(job.frameCount), int(re.findall('\d+', frames[0])[0]), True)
                     if "no such file or directory" in out:
@@ -194,6 +199,7 @@ class Encoder(QtCore.QThread):
                     #print('couldn\'t move files')
 
             #time.sleep(1)
+        self.progressBarPass.emit(100, 100, False)
         #print('encoder done')
 
     def extendSequence(self, job):
