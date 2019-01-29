@@ -125,8 +125,8 @@ class JobHandlerWidget(QWidget):
 
                 o.format = QComboBox()
                 o.format.activated.connect(o.toggleRunJobButton)
+                o.format.setMaxVisibleItems(14)
                 self.tree.setItemWidget(o.widgetItem, 10, o.format)
-
                 o.outFilename = QLineEdit()
                 o.outFilename.setEnabled(0)
                 o.outFilename.editingFinished.connect(o.toggleRunJobButton)
@@ -180,6 +180,7 @@ class JobHandlerWidget(QWidget):
 
                 job.format = QComboBox()
                 job.format.activated.connect(job.toggleRunJobButton)
+                job.format.setMaxVisibleItems(14)
                 self.tree.setItemWidget(job.widgetItem, 10, job.format)
 
                 job.outFilename = QLineEdit()

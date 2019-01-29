@@ -121,7 +121,7 @@ class Video(Asset):
         self.ffmpegTags = ['matroska', 'webm', 'qtrle', 'prores']
         self.format = None
         self.isANI = False
-        self.localFormatsAlpha = ['', 'ANI', 'MOV', 'CH5-MXF', 'PNG SEQUENCE', 'TGA SEQUENCE', 'PNG SEQUENCE 2xFPS']
+        self.localFormatsAlpha = ['', 'ANI', 'ANI-MATTE', 'ANI-INV-MATTE', 'MOV', 'MOV-MATTE', 'MOV-INV-MATTE', 'CH5-MXF', 'PNG SEQUENCE', 'TGA SEQUENCE', 'PNG SEQUENCE 2xFPS']
         self.localFormatsNoAlpha = ['', 'CH5-MXF', 'PNG SEQUENCE', 'TGA SEQUENCE', 'PNG SEQUENCE 2xFPS']
         self.ingestFormats = ['', 'ANI', 'MOV']
 
@@ -150,7 +150,7 @@ class Sequence(Asset):
         elif 'png' in matrix.lower():
             self.ffmpegName = 'png'
         self.format = None
-        self.localFormatsAlpha = ['', 'ANI', 'MOV', 'PNG SEQUENCE 2xFPS']
+        self.localFormatsAlpha = ['', 'ANI', 'ANI-MATTE', 'ANI-INV-MATTE', 'MOV', 'MOV-MATTE', 'MOV-INV-MATTE', 'PNG SEQUENCE 2xFPS']
         self.localFormatsNoAlpha = []
         self.ingestFormats = ['', 'ANI', 'MOV']
 

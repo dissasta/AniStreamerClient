@@ -87,9 +87,29 @@ class Encoder(QtCore.QThread):
                     target = target + '.ani'
                     encode = subprocess.Popen('ffmpeg -start_number ' + job.firstFrame + ' -i ' + '"' + source + '"' + ' -filter_complex "[0:0]crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + ',pad=width=' + hRes + ':height=' + vRes + ':x=' + hPad +':y=' + vPad + ':color=black[fill];[0:0]alphaextract,crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + ',pad=width=' + hRes + ':height=' + vRes + ':x=' + hPad + ':y=' + vPad + ':color=black[key]" -y -vcodec mpeg2video -pix_fmt yuv422p -hide_banner -map "[fill]" -map "[key]" -q:v ' + str(aniQFactor) + ' -b:v 5000k -f vob ' + '"' + target + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si, universal_newlines=True)
 
+                elif job.format.currentText() == 'ANI-MATTE':
+                    if extendAni:
+                        self.extendSequence(job)
+                    target = target + '.ani'
+                    encode = subprocess.Popen('ffmpeg -start_number ' + job.firstFrame + ' -i ' + '"' + source + '"' + ' -filter_complex "[0:0]alphaextract,crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + ',pad=width=' + hRes + ':height=' + vRes + ':x=' + hPad + ':y=' + vPad + '" -y -vcodec mpeg2video -pix_fmt yuv422p -hide_banner -q:v ' + str(aniQFactor) + ' -b:v 5000k -f vob ' + '"' + target + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si, universal_newlines=True)
+
+                elif job.format.currentText() == 'ANI-INV-MATTE':
+                    if extendAni:
+                        self.extendSequence(job)
+                    target = target + '.ani'
+                    encode = subprocess.Popen('ffmpeg -start_number ' + job.firstFrame + ' -i ' + '"' + source + '"' + ' -filter_complex "[0:0]alphaextract,crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + ',pad=width=' + hRes + ':height=' + vRes + ':x=' + hPad + ':y=' + vPad + ',negate" -y -vcodec mpeg2video -pix_fmt yuv422p -hide_banner -q:v ' + str(aniQFactor) + ' -b:v 5000k -f vob ' + '"' + target + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si, universal_newlines=True)
+
                 elif job.format.currentText() == 'MOV':
                     target = target + '.mov'
                     encode = subprocess.Popen('ffmpeg -start_number ' + job.firstFrame + ' -i ' + '"' + source + '"' + ' -y -filter_complex "[0:0]crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + '" -pix_fmt argb -vcodec qtrle -an ' + '"' + target + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si, universal_newlines=True)
+
+                elif job.format.currentText() == 'MOV-MATTE':
+                    target = target + '.mov'
+                    encode = subprocess.Popen('ffmpeg -start_number ' + job.firstFrame + ' -i ' + '"' + source + '"' + ' -y -filter_complex "[0:0]alphaextract,crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + '" -pix_fmt gray -vcodec qtrle -an ' + '"' + target + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si, universal_newlines=True)
+
+                elif job.format.currentText() == 'MOV-INV-MATTE':
+                    target = target + '.mov'
+                    encode = subprocess.Popen('ffmpeg -start_number ' + job.firstFrame + ' -i ' + '"' + source + '"' + ' -y -filter_complex "[0:0]alphaextract,crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + ',negate" -pix_fmt gray -vcodec qtrle -an ' + '"' + target + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si, universal_newlines=True)
 
                 elif job.format.currentText() == "PNG SEQUENCE 2xFPS":
                     target = os.path.join(tempDir, job.outFilename.text())
@@ -118,12 +138,40 @@ class Encoder(QtCore.QThread):
                     target = target + '.ani'
                     encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -y -filter_complex "[0:0]pad=width=' + hRes + ':height=' + vRes + ':x=' + hPad +':y=' + vPad + ':color=black[fill];[0:0]alphaextract,pad=width=' + hRes + ':height=' + vRes + ':x=' + hPad + ':y=' + vPad + ':color=black[key]" -y -vcodec mpeg2video -pix_fmt yuv422p -hide_banner -map "[fill]" -map "[key]" -q:v ' + str(aniQFactor) + ' -b:v 5000k -f vob ' + '"' + target + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si, universal_newlines=True)
 
+                elif job.format.currentText() == 'ANI-MATTE':
+                    target = target + '.ani'
+                    if job.isANI:
+                        encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -y -filter_complex "[0:1]pad=width=' + hRes + ':height=' + vRes + ':x=' + hPad +':y=' + vPad + ':color=black[fill];[0:1]pad=width=' + hRes + ':height=' + vRes + ':x=' + hPad + ':y=' + vPad + ':color=black[key]" -y -vcodec mpeg2video -pix_fmt yuv422p -hide_banner -map "[fill]" -map "[key]" -q:v ' + str(aniQFactor) + ' -b:v 5000k -f vob ' + '"' + target + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si, universal_newlines=True)
+                    else:
+                        encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -y -filter_complex "[0:0]alphaextract,pad=width=' + hRes + ':height=' + vRes + ':x=' + hPad +':y=' + vPad + ':color=black[fill];[0:0]alphaextract,pad=width=' + hRes + ':height=' + vRes + ':x=' + hPad + ':y=' + vPad + ':color=black[key]" -y -vcodec mpeg2video -pix_fmt yuv422p -hide_banner -map "[fill]" -map "[key]" -q:v ' + str(aniQFactor) + ' -b:v 5000k -f vob ' + '"' + target + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si, universal_newlines=True)
+
+                elif job.format.currentText() == 'ANI-INV-MATTE':
+                    target = target + '.ani'
+                    if job.isANI:
+                        encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -y -filter_complex "[0:1]pad=width=' + hRes + ':height=' + vRes + ':x=' + hPad +':y=' + vPad + ':color=black,negate[fill];[0:1]pad=width=' + hRes + ':height=' + vRes + ':x=' + hPad + ':y=' + vPad + ':color=black,negate[key]" -y -vcodec mpeg2video -pix_fmt yuv422p -hide_banner -map "[fill]" -map "[key]" -q:v ' + str(aniQFactor) + ' -b:v 5000k -f vob ' + '"' + target + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si, universal_newlines=True)
+                    else:
+                        encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -y -filter_complex "[0:0]alphaextract,pad=width=' + hRes + ':height=' + vRes + ':x=' + hPad +':y=' + vPad + ':color=black,negate[fill];[0:0]alphaextract,pad=width=' + hRes + ':height=' + vRes + ':x=' + hPad + ':y=' + vPad + ':color=black,negate[key]" -y -vcodec mpeg2video -pix_fmt yuv422p -hide_banner -map "[fill]" -map "[key]" -q:v ' + str(aniQFactor) + ' -b:v 5000k -f vob ' + '"' + target + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si, universal_newlines=True)
+
                 elif job.format.currentText() == 'MOV':
                     target = target + '.mov'
                     if job.isANI:
                         encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -i ' + '"' + job.path + '"' + ' -y -filter_complex [0:0][1:1]alphamerge -pix_fmt argb -vcodec qtrle -hide_banner ' + '"' + target + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si, universal_newlines=True)
                     else:
                         encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -y -pix_fmt argb -vcodec qtrle -an ' + '"' + target + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si, universal_newlines=True)
+
+                elif job.format.currentText() == 'MOV-MATTE':
+                    target = target + '.mov'
+                    if job.isANI:
+                        encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -y -map 0:1 -pix_fmt gray -vcodec qtrle -an -hide_banner ' + '"' + target + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si, universal_newlines=True)
+                    else:
+                        encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -y -filter_complex "[0:0]alphaextract[key]" -y -pix_fmt gray -vcodec qtrle -map [key]-an -hide_banner ' + '"' + target + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si, universal_newlines=True)
+
+                elif job.format.currentText() == 'MOV-INV-MATTE':
+                    target = target + '.mov'
+                    if job.isANI:
+                        encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -y -filter_complex "[0:1]negate[key]" -pix_fmt gray -vcodec qtrle -map [key]-an -hide_banner ' + '"' + target + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si, universal_newlines=True)
+                    else:
+                        encode = subprocess.Popen('ffmpeg -i ' + '"' + job.path + '"' + ' -y -filter_complex "[0:0]alphaextract,negate[key]" -y -pix_fmt gray -vcodec qtrle -map [key]-an -hide_banner ' + '"' + target + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si, universal_newlines=True)
 
                 elif job.format.currentText() == 'CH5-MXF':
                     target = target + '.mxf'
