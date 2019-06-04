@@ -92,7 +92,7 @@ class Asset(object):
             outputFile = outputFile + '_out'
 
         elif parentFolder == 'out' and ('_out' in filename or ' out' in filename):
-            outputFile = outputFile + aniExt
+            outputFile = outputFile + '_out'
 
         else:
             if ('_in' in parentFolder or ' in' in parentFolder) and ('in' not in filename and '_in' not in filename):
