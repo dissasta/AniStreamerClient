@@ -7,9 +7,9 @@ from PyQt5 import QtCore
 from PyQt5.QtWidgets import QTreeWidget, QTreeWidgetItem, QApplication, QWidget
 
 sequenceAssetTypes = ['.tga', '.png']
-videoAssetTypes = ['.ani', '.mov', '.mpeg', '.mpg', '.mkv', '.avi', '.mp4', '.wmv', '.m2v', '.mxf']
+videoAssetTypes = ['.ani', '.mov', '.mpeg', '.mpg', '.mkv', '.avi', '.mp4', '.wmv', '.m2v', '.mxf', '.webm']
 archiveAssetTypes = ['.zip', '.tar', '.rar', '.7z']
-alphaTags = ['rgba', 'brga', 'bgra']
+alphaTags = ['rgba', 'brga', 'bgra', 'alpha_mode      : 1']
 
 si = subprocess.STARTUPINFO()
 si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
@@ -38,6 +38,7 @@ class Asset(object):
         self.failed = False
         self.fps = None
         self.ingestable = False
+        self.extended = False
 
     def btnstate(self):
         if self.ingest:
@@ -119,11 +120,13 @@ class Video(Asset):
         self.frameCount = None
         self.formats = []
         self.ffmpegTags = ['matroska', 'webm', 'qtrle', 'prores']
+        self.ffmpegDecoderString = ''
         self.format = None
         self.isANI = False
-        self.localFormatsAlpha = ['', 'ANI', 'ANI-MATTE', 'ANI-INV-MATTE', 'MOV', 'MOV-MATTE', 'MOV-INV-MATTE', 'CH5-MXF', 'PNG SEQUENCE', 'TGA SEQUENCE', 'PNG SEQUENCE 2xFPS']
+        self.isWEBM = False
+        self.localFormatsAlpha = ['', 'ANI', 'ANI-MATTE', 'ANI-INV-MATTE', 'WEBM-VP9', 'MOV', 'MOV-MATTE', 'MOV-INV-MATTE', 'CH5-MXF', 'PNG SEQUENCE', 'TGA SEQUENCE', 'PNG SEQUENCE 2xFPS']
         self.localFormatsNoAlpha = ['', 'CH5-MXF', 'PNG SEQUENCE', 'TGA SEQUENCE', 'PNG SEQUENCE 2xFPS']
-        self.ingestFormats = ['', 'ANI', 'MOV']
+        self.ingestFormats = ['', 'ANI', 'WEBM-VP9', 'MOV']
 
 class Folder(Asset):
     def __init__(self, path):
@@ -145,14 +148,15 @@ class Sequence(Asset):
         self.isPNG = False
         self.validFormat = False
         self.gaps = gaps
+        self.appendBlack = False
         if 'tga' in matrix.lower():
             self.ffmpegName = 'targa'
         elif 'png' in matrix.lower():
             self.ffmpegName = 'png'
         self.format = None
-        self.localFormatsAlpha = ['', 'ANI', 'ANI-MATTE', 'ANI-INV-MATTE', 'MOV', 'MOV-MATTE', 'MOV-INV-MATTE', 'PNG SEQUENCE 2xFPS']
+        self.localFormatsAlpha = ['', 'ANI', 'ANI-MATTE', 'ANI-INV-MATTE', 'WEBM-VP9', 'MOV', 'MOV-MATTE', 'MOV-INV-MATTE', 'PNG SEQUENCE 2xFPS']
         self.localFormatsNoAlpha = []
-        self.ingestFormats = ['', 'ANI', 'MOV']
+        self.ingestFormats = ['', 'ANI', 'WEBM-VP9', 'MOV']
 
 class Still(Asset):
     def __init__(self, path):
@@ -419,7 +423,7 @@ class JobScanner(QtCore.QThread):
                         err = err.decode('utf-8')
 
                         if not job.resolution:
-                            job.resolution = re.findall('\d+x\d+', err)[0]
+                            job.resolution = re.findall('\d+x\d+', err)[-1]
                             self.new_signal2.emit(job, 5, job.resolution)
 
                         if job.content[0].split('.')[-1].lower() == 'tga' and "Video: targa" in err:
@@ -496,7 +500,7 @@ class JobScanner(QtCore.QThread):
                 err = err.decode('utf-8')
                 if not 'decoding for stream 0 failed' in err:
                     alpha = any(x in err for x in alphaTags)
-                    job.resolution = re.findall('\d+x\d+', err)[0]
+                    job.resolution = re.findall('\d+x\d+', err)[-1]
                     self.new_signal2.emit(job, 5, job.resolution)
 
                     if not alpha:
@@ -538,6 +542,8 @@ class JobScanner(QtCore.QThread):
                 out, err = metadata.communicate()
                 err = err.decode('utf-8')
                 aniCondition = re.findall('Stream #0:0\[\S+\]: Video', err) and re.findall('Stream #0:1\[\S+\]: Video', err)
+                webmCondition = re.findall('Stream #0:0: Video: vp8', err) or re.findall('Stream #0:0: Video: vp9', err) or re.findall('Stream #0:0\(\S+\): Video: vp9', err) or re.findall('Stream #0:0\(\S+\): Video: vp8', err)
+
                 if re.findall('Stream #0:0\(\S+\): Video|Stream #0:0: Video|Stream #0:1\(\S+\): Video', err) or aniCondition:
                     job.valid = True
                     alpha = any(x in err for x in alphaTags)
@@ -570,6 +576,15 @@ class JobScanner(QtCore.QThread):
                         job.isANI = True
                         job.ingestFormats[1] = 'PASS-THROUGH'
                         job.localFormatsAlpha.remove('ANI')
+
+                    if job.ext == '.webm' and webmCondition:
+                        job.isWEBM = True
+                        if 'vp9' in webmCondition[0]:
+                            job.ffmpegDecoderString = '-vcodec libvpx-vp9 '
+                        else:
+                            job.ffmpegDecoderString = '-vcodec libvpx '
+                        job.ingestFormats[1] = 'PASS-THROUGH'
+                        job.localFormatsAlpha.remove('WEBM-VP9')
 
                     self.new_signal2.emit(job, 6, job.duration)
 

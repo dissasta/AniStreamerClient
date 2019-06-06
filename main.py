@@ -67,7 +67,7 @@ class JobHandlerWidget(QWidget):
         self.setWindowIcon(iconFromBase64(self.iconBase64))
         self.tree.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
         self.tree.header().setSectionsMovable(False)
-        #self.tree.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
+        self.tree.setEditTriggers(QtWidgets.QAbstractItemView.NoEditTriggers)
         self.tree.setSelectionMode(QtWidgets.QAbstractItemView.MultiSelection | QtWidgets.QAbstractItemView.OnItem)
         self.tree.setFocusPolicy(QtCore.Qt.NoFocus)
         self.show()

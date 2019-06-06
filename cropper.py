@@ -161,6 +161,7 @@ class Cropper(QMainWindow):
         self.layBottom.addWidget(self.resetBtn)
 
         if self.job.type == 'Sequence':
+
             self.addBlackLabel = QPushButton('APPEND BLACK', self)
             if not self.job.appendBlack:
                 self.addBlackLabel.setStyleSheet("background-color: rgb(50, 50, 50); color: grey;")
