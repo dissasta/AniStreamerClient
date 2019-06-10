@@ -2,7 +2,7 @@ from main import *
 from jobhandler import *
 from PyQt5.QtWidgets import QLabel, QMainWindow, QApplication, QWidget, QVBoxLayout, QHBoxLayout, QScrollArea, QSlider, QSpacerItem, QLineEdit, QPushButton, QToolTip
 from PyQt5.QtGui import QPixmap, QMouseEvent, QImage, QIntValidator
-import os, time
+import os, time, binascii
 from PyQt5 import QtCore
 
 class MyLabel(QLabel):
@@ -231,7 +231,31 @@ class Cropper(QMainWindow):
 
     def loadImageFromBin(self, imageData):
         barray = QtCore.QByteArray()
-        barray.append(imageData.read())
+        barray.append(imageData.read(18))
+        width = int(binascii.b2a_hex(barray[13] + barray[12]), 16)
+        height = int(binascii.b2a_hex(barray[15] + barray[14]), 16)
+        RLE = int(binascii.b2a_hex(barray[2]), 16) in range(9,12)
+        alpha = int(binascii.b2a_hex(barray[16]), 16) == 32
+        pxlCount = width * height
+        pxlTotal = 0
+        print(pxlCount)
+        if not RLE:
+            barray.append(imageData.read())
+        else:
+            while pxlTotal != pxlCount:
+                count = int(binascii.b2a_hex(imageData.read(1)), 16)
+                if alpha:
+                    pixel = imageData.read(4)
+                else:
+                    pixel = imageData.read(3)
+                for i in range(count):
+                    barray.append(pixel)
+
+                pxlTotal += count
+                print(pxlTotal)
+
+
+
         if self.job.isTGA:
             if self.readable == None:
                 if barray[-len(self.targaLabel):] == b'TRUEVISION-XFILE.\x00':
