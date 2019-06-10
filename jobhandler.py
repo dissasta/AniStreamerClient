@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import QTreeWidget, QTreeWidgetItem, QApplication, QWidget
 sequenceAssetTypes = ['.tga', '.png']
 videoAssetTypes = ['.ani', '.mov', '.mpeg', '.mpg', '.mkv', '.avi', '.mp4', '.wmv', '.m2v', '.mxf', '.webm']
 archiveAssetTypes = ['.zip', '.tar', '.rar', '.7z']
-alphaTags = ['rgba', 'brga', 'bgra', 'alpha_mode      : 1']
+alphaTags = ['rgba', 'brga', 'bgra', 'argb', 'alpha_mode      : 1']
 
 si = subprocess.STARTUPINFO()
 si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
@@ -118,8 +118,6 @@ class Video(Asset):
         self.uncompress = False
         self.fps = None
         self.frameCount = None
-        self.formats = []
-        self.ffmpegTags = ['matroska', 'webm', 'qtrle', 'prores']
         self.ffmpegDecoderString = ''
         self.format = None
         self.isANI = False
