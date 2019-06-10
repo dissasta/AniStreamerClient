@@ -231,32 +231,45 @@ class Cropper(QMainWindow):
 
     def loadImageFromBin(self, imageData):
         barray = QtCore.QByteArray()
-        barray.append(imageData.read(18))
-        width = int(binascii.b2a_hex(barray[13] + barray[12]), 16)
-        height = int(binascii.b2a_hex(barray[15] + barray[14]), 16)
-        RLE = int(binascii.b2a_hex(barray[2]), 16) in range(9,12)
-        alpha = int(binascii.b2a_hex(barray[16]), 16) == 32
-        pxlCount = width * height
-        pxlTotal = 0
-        print(pxlCount)
-        if not RLE:
-            barray.append(imageData.read())
-        else:
-            while pxlTotal != pxlCount:
-                count = int(binascii.b2a_hex(imageData.read(1)), 16)
-                if alpha:
-                    pixel = imageData.read(4)
-                else:
-                    pixel = imageData.read(3)
-                for i in range(count):
-                    barray.append(pixel)
-
-                pxlTotal += count
-                print(pxlTotal)
-
-
 
         if self.job.isTGA:
+            barray.append(imageData.read(18))
+            width = int(binascii.b2a_hex(barray[13] + barray[12]), 16)
+            height = int(binascii.b2a_hex(barray[15] + barray[14]), 16)
+            RLE = int(binascii.b2a_hex(barray[2]), 16) in range(9, 12)
+            alpha = int(binascii.b2a_hex(barray[16]), 16) == 32
+            if alpha:
+                pixelData = 4
+            else:
+                pixelData = 3
+
+            pxlCount = width * height
+            pxlTotal = 0
+
+            if not RLE:
+                barray.append(imageData.read())
+            else:
+
+                while pxlTotal != pxlCount:
+                    count = int(binascii.b2a_hex(imageData.read(1)), 16)
+                    if count >= 128:
+                        count = abs((count & 0xF0) - 128) + (count & 0x0F) + 1
+
+                        pixel = imageData.read(pixelData)
+
+                        for i in range(count):
+                            barray.append(pixel)
+                    else:
+                        count += 1
+                        for i in range(count):
+                            pixel = imageData.read(pixelData)
+                            barray.append(pixel)
+
+                    pxlTotal += count
+                    print(pxlTotal)
+
+                barray.append(imageData.read())
+
             if self.readable == None:
                 if barray[-len(self.targaLabel):] == b'TRUEVISION-XFILE.\x00':
                     self.readable = True
@@ -264,6 +277,7 @@ class Cropper(QMainWindow):
                     self.readable = False
             for i in self.targaLabel:
                 barray.append(i)
+
             qdata = QImage.fromData(barray, 'tga')
         else:
             qdata = QImage.fromData(barray)
