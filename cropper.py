@@ -2,7 +2,7 @@ from main import *
 from jobhandler import *
 from PyQt5.QtWidgets import QLabel, QMainWindow, QApplication, QWidget, QVBoxLayout, QHBoxLayout, QScrollArea, QSlider, QSpacerItem, QLineEdit, QPushButton, QToolTip
 from PyQt5.QtGui import QPixmap, QMouseEvent, QImage, QIntValidator
-import os, time, binascii
+import os, time, binascii, cv2
 from PyQt5 import QtCore
 
 class MyLabel(QLabel):
@@ -103,7 +103,45 @@ class Cropper(QMainWindow):
         self.setWindowIcon(iconFromBase64(self.iconBase64))
         self.font = QtGui.QFont('SansSerif', 11)
 
-        if self.job.type == 'Still':
+        if self.job.type == 'Video':
+            self.minWidth = 400
+            self.vc = cv2.VideoCapture(self.job.path)
+
+            if self.vc.isOpened():
+                pixmap = self.getVideoFrameData(0)
+                self.label.setPixmap(pixmap)
+            else:
+                rval = False
+                cv2.waitKey(1)
+            #vc.release()
+
+            self.sl = QSlider(Qt.Horizontal)
+            self.sl.setMaximum(200)
+            self.sl.setValue(0)
+            self.sl.setTickPosition(QSlider.TicksBelow)
+
+            if self.job.fps:
+                self.sl.setTickInterval(job.fps)
+            else:
+                self.sl.setTickInterval(25)
+
+            self.layBottom.addWidget(self.sl)
+            self.sl.valueChanged.connect(self.valuechange)
+            self.sl.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+            self.minWidth = 770
+
+            self.vertSpacer = QSpacerItem(20, 0)
+            self.layBottom.addItem(self.vertSpacer)
+
+            self.tcLabel = QLabel()
+            self.tcLabel.setText('00:00:00.01')
+            self.tcLabel.setStyleSheet("color: grey")
+            self.tcLabel.setFont(self.font)
+            self.layBottom.addWidget(self.tcLabel)
+
+            self.layBottom.addItem(self.vertSpacer)
+
+        elif self.job.type == 'Still':
             imageData = open(job.path, 'rb')
             qdata = self.loadImageFromBin(imageData)
             pixmap = QPixmap.fromImage(qdata)
@@ -328,14 +366,24 @@ class Cropper(QMainWindow):
         position = self.sl.value()
         self.updateTC(position + 1)
         try:
-            if not self.readable:
-                imageData = open(os.path.join(self.job.path, self.job.content[position]), 'rb')
-                qdata = self.loadImageFromBin(imageData)
-                pixmap = QPixmap.fromImage(qdata)
+            if self.job.type == 'Video':
+                pixmap = self.getVideoFrameData(position)
             else:
-                pixmap = QPixmap(os.path.join(self.job.path, self.job.content[position]))
+                if not self.readable:
+                    imageData = open(os.path.join(self.job.path, self.job.content[position]), 'rb')
+                    qdata = self.loadImageFromBin(imageData)
+                    pixmap = QPixmap.fromImage(qdata)
+                else:
+                    pixmap = QPixmap(os.path.join(self.job.path, self.job.content[position]))
             self.label.setPixmap(pixmap)
 
         except Exception:
             pass
             #print('something went wrong')
+
+    def getVideoFrameData(self, frameID):
+        self.vc.set(1,frameID)
+        rval, frame = self.vc.read(cv2.IMREAD_UNCHANGED)
+        imgData = cv2.imencode('.png', frame)[1].tostring()
+        qdata = QImage.fromData(imgData)
+        return QPixmap.fromImage(qdata)

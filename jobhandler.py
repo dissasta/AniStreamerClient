@@ -602,8 +602,8 @@ class JobScanner(QtCore.QThread):
                     self.new_signal2.emit(job, 7, 'BAD INPUT')
 
             if job.valid:
-                if not job.type == 'Video':
-                    job.edit.setEnabled(1)
+                #if not job.type == 'Video':
+                job.edit.setEnabled(1)
                 job.fillFormats()
                 job.outFilename.setText(job.genOutFilename())
                 job.outFilename.setCursorPosition(0)
