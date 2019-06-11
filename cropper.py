@@ -69,9 +69,10 @@ class MyLabel(QLabel):
 class Cropper(QMainWindow):
     def __init__(self, parent, job):
         QMainWindow.__init__(self, parent)
-        self.targaLabel = 'TRUEVISION-XFILE. '
-        self.readable = None
+        self.TGAfooter = b'\x00\x00\x00\x00\x00\x00\x00\x00TRUEVISION-XFILE.\x00'
+        self.TGAcolourMap = {9: b'\x01', 10: b'\x02', 11: b'\x03'}
         self.parent = parent
+        self.readable = False
         self.job = job
         self.sl = None
         self.minWidth = None
@@ -230,14 +231,22 @@ class Cropper(QMainWindow):
         self.job.crop = [x, y, w, h]
 
     def loadImageFromBin(self, imageData):
+        header = QtCore.QByteArray()
         barray = QtCore.QByteArray()
 
         if self.job.isTGA:
-            barray.append(imageData.read(18))
-            width = int(binascii.b2a_hex(barray[13] + barray[12]), 16)
-            height = int(binascii.b2a_hex(barray[15] + barray[14]), 16)
-            RLE = int(binascii.b2a_hex(barray[2]), 16) in range(9, 12)
-            alpha = int(binascii.b2a_hex(barray[16]), 16) == 32
+            header.append(imageData.read(18))
+            width = int(binascii.b2a_hex(header[13] + header[12]), 16)
+            height = int(binascii.b2a_hex(header[15] + header[14]), 16)
+            RLE = int(binascii.b2a_hex(header[2]), 16) in range(9, 12)
+            alpha = int(binascii.b2a_hex(header[16]), 16) == 32
+
+            for i in range(len(header)):
+                if i == 2 and RLE:
+                    barray.append(self.TGAcolourMap[int(binascii.b2a_hex(header[2]), 16)])
+                else:
+                    barray.append(header[i])
+
             if alpha:
                 pixelData = 4
             else:
@@ -249,39 +258,37 @@ class Cropper(QMainWindow):
             if not RLE:
                 barray.append(imageData.read())
             else:
-
                 while pxlTotal != pxlCount:
-                    count = int(binascii.b2a_hex(imageData.read(1)), 16)
-                    if count >= 128:
-                        count = abs((count & 0xF0) - 128) + (count & 0x0F) + 1
+                    rCount = int(binascii.b2a_hex(imageData.read(1)), 16)
+                    if rCount >= 128:
+                        rCount = abs((rCount & 0xF0) - 128) + (rCount & 0x0F) + 1
 
-                        pixel = imageData.read(pixelData)
+                        pixels = imageData.read(pixelData) * rCount
+                        barray.append(pixels)
 
-                        for i in range(count):
-                            barray.append(pixel)
                     else:
-                        count += 1
-                        for i in range(count):
+                        rCount += 1
+                        for i in range(rCount):
                             pixel = imageData.read(pixelData)
                             barray.append(pixel)
 
-                    pxlTotal += count
-                    print(pxlTotal)
+                    pxlTotal += rCount
 
                 barray.append(imageData.read())
 
-            if self.readable == None:
-                if barray[-len(self.targaLabel):] == b'TRUEVISION-XFILE.\x00':
-                    self.readable = True
+            if not self.readable:
+                if barray[-len(self.TGAfooter):] != self.TGAfooter:
+                    barray.append(self.TGAfooter)
                 else:
-                    self.readable = False
-            for i in self.targaLabel:
-                barray.append(i)
+                    self.readable = True
 
             qdata = QImage.fromData(barray, 'tga')
+
         else:
+            barray.append(imageData.read())
             qdata = QImage.fromData(barray)
             self.readable = True
+
         return qdata
 
     def resetCropArea(self):
