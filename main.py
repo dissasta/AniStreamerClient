@@ -283,8 +283,8 @@ class DropZone(QWidget):
         QWidget.__init__(self)
         self.mainApp = mainApp
         self.fadeOffTime = 15
-        self.width = 250
-        self.height = 100
+        self.width = 375
+        self.height = 150
         self.left = ctypes.windll.user32.GetSystemMetrics(0) - self.width - 20
         self.top = ctypes.windll.user32.GetSystemMetrics(1) - self.height - 40
         self.initUI()

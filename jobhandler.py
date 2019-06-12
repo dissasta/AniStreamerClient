@@ -37,6 +37,7 @@ class Asset(object):
         self.runJob = None
         self.failed = False
         self.fps = None
+        self.frameCount = None
         self.ingestable = False
         self.extended = False
 
@@ -117,7 +118,6 @@ class Video(Asset):
         self.type = 'Video'
         self.uncompress = False
         self.fps = None
-        self.frameCount = None
         self.ffmpegDecoderString = ''
         self.format = None
         self.isANI = False
@@ -373,6 +373,7 @@ class JobScanner(QtCore.QThread):
     def getDuration(self, job):
         if job.type == 'Sequence':
             frames = len(job.content)
+            job.frameCount = frames
             hh = int(frames/60/60/25)
             mm = int(frames/60/25) - (hh*60)
             ss = int(frames/25) - (mm*60) - (hh*60* 60)

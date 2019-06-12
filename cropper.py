@@ -71,6 +71,7 @@ class Cropper(QMainWindow):
         QMainWindow.__init__(self, parent)
         self.TGAfooter = b'\x00\x00\x00\x00\x00\x00\x00\x00TRUEVISION-XFILE.\x00'
         self.TGAcolourMap = {9: b'\x01', 10: b'\x02', 11: b'\x03'}
+        self.vc = None
         self.parent = parent
         self.readable = False
         self.job = job
@@ -103,59 +104,33 @@ class Cropper(QMainWindow):
         self.setWindowIcon(iconFromBase64(self.iconBase64))
         self.font = QtGui.QFont('SansSerif', 11)
 
-        if self.job.type == 'Video':
-            self.minWidth = 400
-            self.vc = cv2.VideoCapture(self.job.path)
-
-            if self.vc.isOpened():
-                pixmap = self.getVideoFrameData(0)
-                self.label.setPixmap(pixmap)
-            else:
-                rval = False
-                cv2.waitKey(1)
-            #vc.release()
-
-            self.sl = QSlider(Qt.Horizontal)
-            self.sl.setMaximum(200)
-            self.sl.setValue(0)
-            self.sl.setTickPosition(QSlider.TicksBelow)
-
-            if self.job.fps:
-                self.sl.setTickInterval(job.fps)
-            else:
-                self.sl.setTickInterval(25)
-
-            self.layBottom.addWidget(self.sl)
-            self.sl.valueChanged.connect(self.valuechange)
-            self.sl.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
-            self.minWidth = 770
-
-            self.vertSpacer = QSpacerItem(20, 0)
-            self.layBottom.addItem(self.vertSpacer)
-
-            self.tcLabel = QLabel()
-            self.tcLabel.setText('00:00:00.01')
-            self.tcLabel.setStyleSheet("color: grey")
-            self.tcLabel.setFont(self.font)
-            self.layBottom.addWidget(self.tcLabel)
-
-            self.layBottom.addItem(self.vertSpacer)
-
-        elif self.job.type == 'Still':
+        if self.job.type == 'Still':
             imageData = open(job.path, 'rb')
             qdata = self.loadImageFromBin(imageData)
             pixmap = QPixmap.fromImage(qdata)
             self.label.setPixmap(pixmap)
             self.minWidth = 400
 
-        elif self.job.type == 'Sequence':
-            imageData = open(os.path.join(self.job.path, self.job.content[0]), 'rb')
-            qdata = self.loadImageFromBin(imageData)
-            pixmap = QPixmap.fromImage(qdata)
-            self.label.setPixmap(pixmap)
+        else:
+            if self.job.type == 'Video':
+                self.minWidth = 400
+                self.vc = cv2.VideoCapture(self.job.path)
+
+                if self.vc.isOpened():
+                    pixmap = self.getVideoFrameData(0)
+                    if pixmap:
+                        self.label.setPixmap(pixmap)
+                else:
+                    rval = False
+                    cv2.waitKey(1)
+            else:
+                imageData = open(os.path.join(self.job.path, self.job.content[0]), 'rb')
+                qdata = self.loadImageFromBin(imageData)
+                pixmap = QPixmap.fromImage(qdata)
+                self.label.setPixmap(pixmap)
 
             self.sl = QSlider(Qt.Horizontal)
-            self.sl.setMaximum(len(self.job.content) - 1)
+            self.sl.setMaximum(self.job.frameCount - 1)
             self.sl.setValue(0)
             self.sl.setTickPosition(QSlider.TicksBelow)
 
@@ -383,7 +358,12 @@ class Cropper(QMainWindow):
 
     def getVideoFrameData(self, frameID):
         self.vc.set(1,frameID)
-        rval, frame = self.vc.read(cv2.IMREAD_UNCHANGED)
-        imgData = cv2.imencode('.png', frame)[1].tostring()
-        qdata = QImage.fromData(imgData)
-        return QPixmap.fromImage(qdata)
+        rval, frame = self.vc.read()
+        if rval:
+            imgData = cv2.imencode('.png', frame)[1].tostring()
+            qdata = QImage.fromData(imgData)
+            return QPixmap.fromImage(qdata)
+
+    def closeEvent(self, e):
+        if self.vc:
+            self.vc.release()
