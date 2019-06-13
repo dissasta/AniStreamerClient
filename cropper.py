@@ -33,9 +33,9 @@ class MyLabel(QLabel):
         return pos
 
     def mousePressEvent(self, event: QMouseEvent):
+        self.crop.setGeometry(0, 0, 0, 0)
         self.crop.show()
-        self.crop.setGeometry(0,0,0,0)
-        self.coordSignal.emit(0,0,0,0)
+        self.crop.x, self.crop.y, self.crop.w, self.crop.h = (0, 0 ,0 ,0)
         self.myPosStart = self.getPos(event)
 
     def mouseMoveEvent(self, event):
@@ -58,7 +58,7 @@ class MyLabel(QLabel):
         self.coordSignal.emit(self.crop.x, self.crop.y, self.crop.w, self.crop.h)
 
     def mouseReleaseEvent(self, event):
-        self.cropSize = [self.crop.x, self.crop.y, self.crop.w, self.crop.h]
+        self.coordSignal.emit(self.crop.x, self.crop.y, self.crop.w, self.crop.h)
 
     def enterEvent(self, event):
         pass
@@ -77,6 +77,7 @@ class Cropper(QMainWindow):
         self.job = job
         self.sl = None
         self.minWidth = None
+        self.editLock = False
         self.setWindowTitle("EDIT | RES: %s" % self.job.resolution)
         self.setWindowIcon(QtGui.QIcon('icon.png'))
         self.setStyleSheet("background-color: rgb(50, 50, 50);")
@@ -115,7 +116,6 @@ class Cropper(QMainWindow):
             if self.job.type == 'Video':
                 self.minWidth = 400
                 self.vc = cv2.VideoCapture(self.job.path)
-
                 if self.vc.isOpened():
                     pixmap = self.getVideoFrameData(0)
                     if pixmap:
@@ -164,7 +164,7 @@ class Cropper(QMainWindow):
             self.coordinateEntry[i].setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
         [x.setFixedSize(x.sizeHint()) for x in self.coordinateLabels]
         [x.setFixedWidth(34) for x in self.coordinateEntry]
-        [x.editingFinished.connect(self.setCoords) for x in self.coordinateEntry]
+        [x.textChanged.connect(self.setCoords) for x in self.coordinateEntry]
         [x.setStyleSheet("color: 'grey'; background-color: rgb(60, 63, 65)") for x in self.coordinateEntry]
 
         self.resetBtn = QPushButton('RESET', self)
@@ -223,11 +223,9 @@ class Cropper(QMainWindow):
         self.label.coordSignal.connect(self.updateCoords)
 
         if self.job.crop:
-            self.coordinateEntry[0].setText(str(self.job.crop[0]))
-            self.coordinateEntry[1].setText(str(self.job.crop[1]))
-            self.coordinateEntry[2].setText(str(self.job.crop[2]))
-            self.coordinateEntry[3].setText(str(self.job.crop[3]))
-            self.label.crop.setGeometry(self.job.crop[0], self.job.crop[1], self.job.crop[2], self.job.crop[3])
+            self.editLock = True
+            self.updateCoords(self.job.crop[0], self.job.crop[1], self.job.crop[2], self.job.crop[3])
+            self.editLock = False
         #print('mainlayout', self.lay.sizeHint())
         #print('toplayout', self.layTop.sizeHint())
         #print('bottomlayout', self.layBottom.sizeHint())
@@ -241,7 +239,39 @@ class Cropper(QMainWindow):
         self.coordinateEntry[1].setText(str(y))
         self.coordinateEntry[2].setText(str(w))
         self.coordinateEntry[3].setText(str(h))
-        self.job.crop = [x, y, w, h]
+ #       if done:
+ #           self.job.crop = [x, y, w, h]
+ #           if sum(self.job.crop):
+ #               if not self.job.crop[2] or not self.job.crop[3]:
+ #                   self.resetCropArea()
+ #               else:
+ #                   self.job.edit.setStyleSheet("background-color: rgb(50, 50, 50); color: green;")
+ #           else:
+ #               self.job.edit.setStyleSheet("background-color: rgb(50, 50, 50); color: gold;")
+
+    def resetCropArea(self):
+        self.job.crop = []
+        self.label.crop.setGeometry(0, 0, 0, 0)
+        self.label.crop.hide()
+        self.job.edit.setStyleSheet("background-color: rgb(50, 50, 50); color: gold;")
+        [x.setText('0') for x in self.coordinateEntry]
+
+    def setCoords(self):
+        coords = [x.text() for x in self.coordinateEntry]
+        if not '' in coords and int(coords[2]) != 0 and int(coords[3]) != 0:
+            if int(coords[0]) + int(coords[2]) > self.label.geometry().width():
+               self.coordinateEntry[2].setText(str(self.label.geometry().width() - int(coords[0])))
+            if int(coords[1]) + int(coords[3]) > self.label.geometry().height():
+               self.coordinateEntry[3].setText(str(self.label.geometry().height() - int(coords[1])))
+            self.label.crop.show()
+            self.label.crop.setGeometry(int(coords[0]), int(coords[1]), int(coords[2]), int(coords[3]))
+            self.job.crop = [int(coords[0]), int(coords[1]), int(coords[2]), int(coords[3])]
+            self.job.edit.setStyleSheet("background-color: rgb(50, 50, 50); color: green;")
+        else:
+            if not self.editLock:
+                self.label.crop.setGeometry(0, 0, 0, 0)
+                self.job.crop = []
+                self.job.edit.setStyleSheet("background-color: rgb(50, 50, 50); color: gold;")
 
     def loadImageFromBin(self, imageData):
         header = QtCore.QByteArray()
@@ -304,12 +334,6 @@ class Cropper(QMainWindow):
 
         return qdata
 
-    def resetCropArea(self):
-        self.job.crop = []
-        self.label.crop.setGeometry(0, 0, 0, 0)
-        self.label.crop.hide()
-        [x.setText('0') for x in self.coordinateEntry]
-
     def appendBlack(self):
         if self.job.appendBlack:
             self.job.appendBlack = False
@@ -317,17 +341,6 @@ class Cropper(QMainWindow):
         else:
             self.job.appendBlack = True
             self.addBlackLabel.setStyleSheet("background-color: rgb(50, 50, 50); color: green;")
-
-    def setCoords(self):
-        coords = [x.text() for x in self.coordinateEntry]
-        if not '' in coords:
-            if int(coords[0]) + int(coords[2]) > self.label.geometry().width():
-               self.coordinateEntry[2].setText(str(self.label.geometry().width() - int(coords[0])))
-            if int(coords[1]) + int(coords[3]) > self.label.geometry().height():
-               self.coordinateEntry[3].setText(str(self.label.geometry().height() - int(coords[1])))
-            self.label.crop.show()
-            self.label.crop.setGeometry(int(coords[0]), int(coords[1]), int(coords[2]), int(coords[3]))
-            self.job.crop = [int(coords[0]), int(coords[1]), int(coords[2]), int(coords[3])]
 
     def updateTC(self, frames):
         hh = int(frames / 60 / 60 / self.job.fps)
