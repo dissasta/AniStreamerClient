@@ -5,6 +5,58 @@ from PyQt5.QtGui import QPixmap, QMouseEvent, QImage, QIntValidator
 import os, time, binascii, cv2
 from PyQt5 import QtCore
 
+class MyQSlider(QSlider):
+    def __init__(self, parent):
+        QSlider.__init__(self, Qt.Horizontal)
+        self.parent = parent
+
+    def enterEvent(self, event):
+        px = self.parent.frameGeometry().x()
+        py = self.parent.frameGeometry().y()
+        sx = self.parent.sl.frameGeometry().x()
+        sy = self.parent.sl.frameGeometry().y()
+        sw = self.parent.sl.frameGeometry().width()
+        self.parent.slidersWidget.popUp(px + sx + 4, py + sy - self.parent.slidersWidget.height, sw)
+
+
+class RangeSlidersWidget(QWidget):
+    def __init__(self, parent):
+        QWidget.__init__(self)
+        self.parent = parent
+        self.width = 0
+        self.height = 100
+        self.timer = QtCore.QTimer()
+        self.timer.timeout.connect(self.hideSelf)
+        self.initUI()
+        self.rangeSliders = []
+
+    def initUI(self):
+        self.setGeometry(0, 0, self.width, self.height)
+        self.setStyleSheet("background-color: rgb(70, 70, 70);border: 4px inset black")
+        self.setWindowFlags(Qt.FramelessWindowHint|Qt.Tool|Qt.WindowStaysOnTopHint)
+
+    def popUp(self, x, y, w):
+        self.setGeometry(x, y, w, self.height)
+        self.setWindowOpacity(1)
+        self.show()
+        self.counter = 0
+        self.timer.start(2)
+
+    def hideSelf(self):
+        self.counter += 1
+        if self.counter >= 15 * 100:
+            self.setWindowOpacity(self.windowOpacity()-0.002)
+            if self.windowOpacity() <= 0:
+                self.timer.stop()
+
+    def enterEvent(self, e):
+         self.setWindowOpacity(1)
+         self.timer.stop()
+         self.counter = 0
+
+    def leaveEvent(self, e):
+        self.timer.start(2)
+
 class MyLabel(QLabel):
     coordSignal = QtCore.pyqtSignal(int, int, int, int)
     def __init__(self):
@@ -129,10 +181,11 @@ class Cropper(QMainWindow):
                 pixmap = QPixmap.fromImage(qdata)
                 self.label.setPixmap(pixmap)
 
-            self.sl = QSlider(Qt.Horizontal)
+            self.sl = MyQSlider(self)
             self.sl.setMaximum(self.job.frameCount - 1)
             self.sl.setValue(0)
             self.sl.setTickPosition(QSlider.TicksBelow)
+            self.slidersWidget = RangeSlidersWidget(self)
 
             if self.job.fps:
                 self.sl.setTickInterval(job.fps)
@@ -380,3 +433,5 @@ class Cropper(QMainWindow):
     def closeEvent(self, e):
         if self.vc:
             self.vc.release()
+        if self.slidersWidget:
+            self.slidersWidget.close()
