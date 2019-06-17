@@ -42,20 +42,26 @@ class RangeSlidersWidget(QMainWindow):
         [x.setFixedWidth(66) for x in self.addBlackButtons]
         [x.clicked.connect(self.toggleAppend) for x in self.addBlackButtons]
 
+        self.removeButtons = [QPushButton('x', self) for x in range(len(self.job.segments))]
+        [x.setStyleSheet("border: 0px;") for x in self.removeButtons]
+        [x.clicked.connect(self.removeSlider) for x in self.removeButtons]
+
         for i in range(len(self.job.segments)):
             if self.job.segments[i][2]:
                 self.addBlackButtons[i].setStyleSheet("background-color: rgb(50, 50, 50); color: green;")
             else:
                 self.addBlackButtons[i].setStyleSheet("background-color: rgb(50, 50, 50); color: grey;")
 
-        [self.layTop.addLayout(x) for x in self.rangeSlidersLayouts]
-
         for i in range(len(self.job.segments)):
             self.rangeSlidersLayouts[i].addWidget(self.rangeSliders[i])
             self.rangeSlidersLayouts[i].addWidget(self.addBlackButtons[i])
+            self.rangeSlidersLayouts[i].addWidget(self.removeButtons[i])
+            if i == 0:
+                self.removeButtons[i].setStyleSheet("border: 0px; color: rgba(0,0,0,0);")
+
+        [self.layTop.addLayout(x) for x in self.rangeSlidersLayouts]
 
         self.addSeg = QPushButton('+', self)
-        self.addSeg.setFixedSize(18, 16)
         self.addSeg.setStyleSheet("border: 0px; color: gold;")
         self.addSeg.clicked.connect(self.addSlider)
         self.layAddOn.addWidget(self.addSeg)
@@ -77,14 +83,35 @@ class RangeSlidersWidget(QMainWindow):
         self.addBlackButtons[-1].clicked.connect(self.toggleAppend)
         self.addBlackButtons[-1].setStyleSheet("background-color: rgb(50, 50, 50); color: grey;")
 
+        self.removeButtons.append(QPushButton('x', self))
+        self.removeButtons[-1].setStyleSheet("border: 0px;")
+        self.removeButtons[-1].clicked.connect(self.removeSlider)
+
         self.layTop.addLayout(self.rangeSlidersLayouts[-1])
         self.rangeSlidersLayouts[-1].addWidget(self.rangeSliders[-1])
         self.rangeSlidersLayouts[-1].addWidget(self.addBlackButtons[-1])
+        self.rangeSlidersLayouts[-1].addWidget(self.removeButtons[-1])
 
         self.job.segments.append([1, self.job.frameCount - 1, 0])
 
         self.height = self.centralWidget.sizeHint().height() + 21
         self.move(self.pos().x(), self.pos().y() - 21)
+
+    def removeSlider(self):
+        print(self.job.segments)
+        for i in range(1, len(self.removeButtons)):
+            if self.removeButtons[i] == self.sender():
+                self.rangeSlidersLayouts[i].setParent(None)
+                self.rangeSlidersLayouts[i].deleteLater()
+                #self.rangeSliders[i].deleteLater()
+                #self.addBlackButtons[i].setParent(None)
+                #self.removeButtons[i].setParent(None)
+                self.job.segments.pop(i)
+                #self.rangeSliders.pop(i)
+                #self.addBlackButtons.pop(i)
+                #self.removeButtons.pop(i)
+        print(self.job.segments)
+
 
     def toggleAppend(self):
         for i in range(len(self.addBlackButtons)):
