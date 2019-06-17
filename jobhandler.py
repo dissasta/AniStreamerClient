@@ -40,6 +40,7 @@ class Asset(object):
         self.frameCount = None
         self.ingestable = False
         self.extended = False
+        self.segments = []
 
     def btnstate(self):
         if self.ingest:
@@ -374,6 +375,9 @@ class JobScanner(QtCore.QThread):
         if job.type == 'Sequence':
             frames = len(job.content)
             job.frameCount = frames
+            job.segments.append([1, frames, 0])
+            job.segments.append([1, frames, 1])
+            job.segments.append([1, frames, 0])
             hh = int(frames/60/60/25)
             mm = int(frames/60/25) - (hh*60)
             ss = int(frames/25) - (mm*60) - (hh*60* 60)
@@ -384,6 +388,7 @@ class JobScanner(QtCore.QThread):
         #might need to look into ffmpeg announced durations as they seem off sometimes
         if job.type == 'Video' and job.frameCount:
             frames = job.frameCount
+            job.segments.append([1, frames, 0])
             hh = int(frames/60/60/job.fps)
             mm = int(frames/60/job.fps) - (hh*60)
             ss = int(frames/job.fps) - (mm*60) - (hh*60* 60)

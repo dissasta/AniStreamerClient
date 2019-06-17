@@ -1,61 +1,84 @@
 from main import *
 from jobhandler import *
-from PyQt5.QtWidgets import QLabel, QMainWindow, QApplication, QWidget, QVBoxLayout, QHBoxLayout, QScrollArea, QSlider, QSpacerItem, QLineEdit, QPushButton, QToolTip
+from PyQt5.QtWidgets import QLabel, QMainWindow, QApplication, QWidget, QVBoxLayout, QHBoxLayout, QScrollArea, QSlider, QSpacerItem, QLineEdit, QPushButton, QFrame, QRadioButton
 from PyQt5.QtGui import QPixmap, QMouseEvent, QImage, QIntValidator
 import os, time, binascii, cv2
 from PyQt5 import QtCore
 
-class MyQSlider(QSlider):
+class RangeSlidersWidget(QMainWindow):
     def __init__(self, parent):
-        QSlider.__init__(self, Qt.Horizontal)
+        QMainWindow.__init__(self)
         self.parent = parent
-
-    def enterEvent(self, event):
-        px = self.parent.frameGeometry().x()
-        py = self.parent.frameGeometry().y()
-        sx = self.parent.sl.frameGeometry().x()
-        sy = self.parent.sl.frameGeometry().y()
-        sw = self.parent.sl.frameGeometry().width()
-        self.parent.slidersWidget.popUp(px + sx + 4, py + sy - self.parent.slidersWidget.height, sw)
-
-
-class RangeSlidersWidget(QWidget):
-    def __init__(self, parent):
-        QWidget.__init__(self)
-        self.parent = parent
-        self.width = 0
+        self.width = self.parent.sl.frameGeometry().width()
+        self.job = self.parent.job
         self.height = 100
-        self.timer = QtCore.QTimer()
-        self.timer.timeout.connect(self.hideSelf)
         self.initUI()
         self.rangeSliders = []
 
     def initUI(self):
         self.setGeometry(0, 0, self.width, self.height)
-        self.setStyleSheet("background-color: rgb(70, 70, 70);border: 4px inset black")
-        self.setWindowFlags(Qt.FramelessWindowHint|Qt.Tool|Qt.WindowStaysOnTopHint)
+        self.setStyleSheet("background-color: rgb(70, 70, 70); border: 1px solid rgb(30, 30, 30);")
+        self.setWindowFlags(Qt.FramelessWindowHint|Qt.ToolTip|Qt.WindowStaysOnTopHint)
+        self.centralWidget = QWidget()
+        self.setCentralWidget(self.centralWidget)
+        self.layMain = QVBoxLayout(self.centralWidget)
+        self.layMain.setAlignment(Qt.AlignBottom)
+        self.layTop = QVBoxLayout(self.centralWidget)
+        self.layTop.setAlignment(Qt.AlignBottom)
+        self.layAddOn = QVBoxLayout(self.centralWidget)
+        self.layAddOn.setAlignment(Qt.AlignRight)
+        self.layMain.addLayout(self.layTop)
+        self.layMain.addLayout(self.layAddOn)
 
-    def popUp(self, x, y, w):
-        self.setGeometry(x, y, w, self.height)
-        self.setWindowOpacity(1)
-        self.show()
-        self.counter = 0
-        self.timer.start(2)
+        self.rangeSlidersLayouts = [QHBoxLayout(self.centralWidget) for x in self.job.segments]
+        [x.setAlignment(Qt.AlignHCenter) for x in self.rangeSlidersLayouts]
 
-    def hideSelf(self):
-        self.counter += 1
-        if self.counter >= 15 * 100:
-            self.setWindowOpacity(self.windowOpacity()-0.002)
-            if self.windowOpacity() <= 0:
-                self.timer.stop()
+        self.rangeSliders = [QSlider(Qt.Horizontal) for x in range(len(self.job.segments))]
+        [x.setMaximum(self.job.frameCount - 1) for x in self.rangeSliders]
+        [x.setStyleSheet("border: 0px") for x in self.rangeSliders]
 
-    def enterEvent(self, e):
-         self.setWindowOpacity(1)
-         self.timer.stop()
-         self.counter = 0
+        self.appendBlackButtons = [QPushButton('ADD BLACK', self) for x in range(len(self.job.segments))]
+        [x.setFixedWidth(66) for x in self.appendBlackButtons]
+        [x.clicked.connect(self.toggleAppend) for x in self.appendBlackButtons]
 
-    def leaveEvent(self, e):
-        self.timer.start(2)
+        for i in range(len(self.job.segments)):
+            if self.job.segments[i][2]:
+                self.appendBlackButtons[i].setStyleSheet("background-color: rgb(50, 50, 50); color: green;")
+            else:
+                self.appendBlackButtons[i].setStyleSheet("background-color: rgb(50, 50, 50); color: grey;")
+
+        [self.layTop.addLayout(x) for x in self.rangeSlidersLayouts]
+
+        for i in range(len(self.job.segments)):
+            self.rangeSlidersLayouts[i].addWidget(self.rangeSliders[i])
+            self.rangeSlidersLayouts[i].addWidget(self.appendBlackButtons[i])
+
+        self.addSeg = QPushButton('+', self)
+        self.addSeg.setFixedSize(18, 16)
+        self.addSeg.setStyleSheet("border: 0px; color: gold;")
+        self.addSeg.clicked.connect(self.addSlider)
+        self.layAddOn.addWidget(self.addSeg)
+
+    def addSlider(self):
+        print('fuck you')
+
+    def toggleAppend(self):
+        for i in range(len(self.appendBlackButtons)):
+            if self.appendBlackButtons[i] == self.sender():
+                print(i)
+                if self.parent.job.segments[i][2]:
+                    self.parent.job.segments[i][2] = 0
+                    self.appendBlackButtons[i].setStyleSheet("background-color: rgb(50, 50, 50); color: grey;")
+                else:
+                    self.parent.job.segments[i][2] = 1
+                    self.appendBlackButtons[i].setStyleSheet("background-color: rgb(50, 50, 50); color: green;")
+
+    def updatePosition(self):
+        px = self.parent.frameGeometry().x()
+        py = self.parent.frameGeometry().y()
+        sx = self.parent.sl.frameGeometry().x()
+        sy = self.parent.sl.frameGeometry().y()
+        self.move(px + sx + 4, py + sy - self.height)
 
 class MyLabel(QLabel):
     coordSignal = QtCore.pyqtSignal(int, int, int, int)
@@ -128,6 +151,7 @@ class Cropper(QMainWindow):
         self.readable = False
         self.job = job
         self.sl = None
+        self.slidersWidget = None
         self.minWidth = None
         self.editLock = False
         self.setWindowTitle("EDIT | RES: %s" % self.job.resolution)
@@ -181,7 +205,9 @@ class Cropper(QMainWindow):
                 pixmap = QPixmap.fromImage(qdata)
                 self.label.setPixmap(pixmap)
 
-            self.sl = MyQSlider(self)
+            self.slidersButton = QRadioButton()
+            self.slidersButton.toggled.connect(lambda: self.slidersWidgetChangeState())
+            self.sl = QSlider(Qt.Horizontal)
             self.sl.setMaximum(self.job.frameCount - 1)
             self.sl.setValue(0)
             self.sl.setTickPosition(QSlider.TicksBelow)
@@ -192,6 +218,7 @@ class Cropper(QMainWindow):
             else:
                 self.sl.setTickInterval(25)
 
+            self.layBottom.addWidget(self.slidersButton)
             self.layBottom.addWidget(self.sl)
             self.sl.valueChanged.connect(self.valuechange)
             self.sl.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
@@ -265,6 +292,8 @@ class Cropper(QMainWindow):
             self.sl.setFixedWidth(self.geometry().width()/4)
 
         self.show()
+        if self.slidersWidget:
+            self.slidersWidget.updatePosition()
 
         self.xwValidator = QIntValidator(0, self.label.geometry().width())
         self.yhValidator = QIntValidator(0, self.label.geometry().height())
@@ -430,8 +459,18 @@ class Cropper(QMainWindow):
             qdata = QImage.fromData(imgData)
             return QPixmap.fromImage(qdata)
 
+    def moveEvent(self, e):
+        if self.slidersWidget:
+            self.slidersWidget.updatePosition()
+
     def closeEvent(self, e):
         if self.vc:
             self.vc.release()
         if self.slidersWidget:
             self.slidersWidget.close()
+
+    def slidersWidgetChangeState(self):
+        if self.slidersButton.isChecked():
+            self.slidersWidget.show()
+        else:
+            self.slidersWidget.hide()
