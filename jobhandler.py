@@ -376,8 +376,10 @@ class JobScanner(QtCore.QThread):
             frames = len(job.content)
             job.frameCount = frames
             job.segments.append([1, frames, 0])
-            job.segments.append([1, frames, 1])
-            job.segments.append([1, frames, 0])
+            job.segments.append([1, 5, 0])
+            job.segments.append([1, 10, 1])
+            job.segments.append([1, 8, 0])
+            job.segments.append([1, 5, 1])
             hh = int(frames/60/60/25)
             mm = int(frames/60/25) - (hh*60)
             ss = int(frames/25) - (mm*60) - (hh*60* 60)
