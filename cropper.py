@@ -39,10 +39,11 @@ class RangeSlidersWidget(QMainWindow):
         #[x.setMaximum(self.job.frameCount - 1) for x in self.rangeSliders]
         #[x.setStyleSheet("border: 0px") for x in self.rangeSliders]
         for i in range(len(self.rangeSliders)):
+            self.rangeSliders[i].resize(480, 30)
             self.rangeSliders[i].setMax(self.job.frameCount)
             self.rangeSliders[i].setRange(self.job.segments[i][0], self.job.segments[i][1])
             self.rangeSliders[i].endValueChanged.connect(self.updateRange)
-            #self.rangeSliders[i].startValueChanged.connect(self.updateRange)
+            self.rangeSliders[i].startValueChanged.connect(self.updateRange)
 
         self.addBlackButtons = [QPushButton('ADD BLACK', self) for x in range(len(self.job.segments))]
         [x.setFixedWidth(66) for x in self.addBlackButtons]
@@ -74,19 +75,14 @@ class RangeSlidersWidget(QMainWindow):
 
         self.height = self.centralWidget.sizeHint().height()
         self.setGeometry(0, 0, self.width, self.height)
-        print(self.sizeHint())
-        print(self.centralWidget.sizeHint())
-        print(self.layTop.sizeHint())
-        print(self.layAddOn.sizeHint())
 
     def updateRange(self):
         for i in range(len(self.rangeSliders)):
-            print('yo')
-            if self.rangeSliders[i] == self.sender():
-                print('elo')
-                range = self.rangeSliders[i].getRange()
-                self.job.segments[i][0] = range[0]
-                self.job.segments[i][1] = range[1]
+             if self.rangeSliders[i] == self.sender():
+                handleRange = self.rangeSliders[i].getRange()
+                self.job.segments[i][0] = handleRange[0]
+                self.job.segments[i][1] = handleRange[1]
+                break
 
     def addSlider(self):
         self.rangeSlidersLayouts.append(QHBoxLayout(self.centralWidget))

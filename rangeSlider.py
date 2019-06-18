@@ -33,12 +33,15 @@ QRangeSlider > QSplitter::handle:pressed {
 """
 
 def scale(val, src, dst):
-    return int(((val - src[0]) / float(src[1]-src[0])) * (dst[1]-dst[0]) + dst[0])
+    print('val: ', val)
+    res = int(((val - src[0]) / float(src[1]-src[0])) * (dst[1]-dst[0]) + dst[0])
+    print('result: ', res)
+    return(res)
 
 class Ui_Form(object):
     def setupUi(self, Form):
         Form.setObjectName("QRangeSlider")
-        Form.resize(300, 30)
+        #Form.resize(160, 30)
         Form.setStyleSheet(DEFAULT_CSS)
         self.gridLayout = QtWidgets.QGridLayout(Form)
         self.gridLayout.setContentsMargins(0, 0, 0, 0)
@@ -46,25 +49,13 @@ class Ui_Form(object):
         self.gridLayout.setObjectName("gridLayout")
         self._splitter = QtWidgets.QSplitter(Form)
         self._splitter.setMinimumSize(QtCore.QSize(0, 0))
-        self._splitter.setMaximumSize(QtCore.QSize(16777215, 16777215))
+        self._splitter.setMaximumSize(QtCore.QSize(1000, 1000))
         self._splitter.setOrientation(QtCore.Qt.Horizontal)
-        self._splitter.setObjectName("splitter")
         self._head = QtWidgets.QGroupBox(self._splitter)
-        self._head.setTitle("")
-        self._head.setObjectName("Head")
         self._handle = QtWidgets.QGroupBox(self._splitter)
-        self._handle.setTitle("")
-        self._handle.setObjectName("Span")
         self._tail = QtWidgets.QGroupBox(self._splitter)
-        self._tail.setTitle("")
-        self._tail.setObjectName("Tail")
-        self.gridLayout.addWidget(self._splitter, 0, 0, 1, 1)
-        self.retranslateUi(Form)
+        self.gridLayout.addWidget(self._splitter)
         QtCore.QMetaObject.connectSlotsByName(Form)
-
-    def retranslateUi(self, Form):
-        _translate = QtCore.QCoreApplication.translate
-        Form.setWindowTitle(_translate("QRangeSlider", "QRangeSlider"))
 
 class Element(QtWidgets.QGroupBox):
     def __init__(self, parent, main):
@@ -98,8 +89,7 @@ class Head(Element):
     def drawText(self, event, qp):
         qp.setPen(self.textColor())
         qp.setFont(QtGui.QFont('Arial', 10))
-        #qp.drawText(event.rect(), QtCore.Qt.AlignLeft, str(self.main.min()))
-
+        qp.drawText(event.rect(), QtCore.Qt.AlignLeft, str(self.main.min()))
 
 class Tail(Element):
     def __init__(self, parent, main):
@@ -108,7 +98,7 @@ class Tail(Element):
     def drawText(self, event, qp):
         qp.setPen(self.textColor())
         qp.setFont(QtGui.QFont('Arial', 10))
-        #qp.drawText(event.rect(), QtCore.Qt.AlignRight, str(self.main.max()))
+        qp.drawText(event.rect(), QtCore.Qt.AlignRight, str(self.main.max()))
 
 class Handle(Element):
     def __init__(self, parent, main):
@@ -147,10 +137,6 @@ class QRangeSlider(QtWidgets.QWidget, Ui_Form):
     maxValueChanged = QtCore.pyqtSignal(int)
     minValueChanged = QtCore.pyqtSignal(int)
     startValueChanged = QtCore.pyqtSignal(int)
-    minValueChanged = QtCore.pyqtSignal(int)
-    maxValueChanged = QtCore.pyqtSignal(int)
-    startValueChanged = QtCore.pyqtSignal(int)
-    endValueChanged = QtCore.pyqtSignal(int)
 
     _SPLIT_START = 1
     _SPLIT_END = 2
@@ -160,29 +146,29 @@ class QRangeSlider(QtWidgets.QWidget, Ui_Form):
         self.setupUi(self)
         self.setMouseTracking(False)
         self._splitter.splitterMoved.connect(self._handleMoveSplitter)
-        self._head_layout = QtWidgets.QHBoxLayout()
-        self._head_layout.setSpacing(0)
-        self._head_layout.setContentsMargins(0, 0, 0, 0)
-        self._head.setLayout(self._head_layout)
-        self.head = Head(self._head, main=self)
-        self._head_layout.addWidget(self.head)
+        #self._head_layout = QtWidgets.QHBoxLayout()
+        #self._head_layout.setSpacing(0)
+        #self._head_layout.setContentsMargins(0, 0, 0, 0)
+        #self._head.setLayout(self._head_layout)
+        #self.head = Head(self._head, main=self)
+        #self._head_layout.addWidget(self.head)
         self._handle_layout = QtWidgets.QHBoxLayout()
         self._handle_layout.setSpacing(0)
-        self._handle_layout.setContentsMargins(0, 0, 0, 0)
+        self._handle_layout.setContentsMargins(2, 0, 2, 0)
         self._handle.setLayout(self._handle_layout)
         self.handle = Handle(self._handle, main=self)
         self.handle.setTextColor((150, 255, 150))
         self._handle_layout.addWidget(self.handle)
-        self._tail_layout = QtWidgets.QHBoxLayout()
-        self._tail_layout.setSpacing(0)
-        self._tail_layout.setContentsMargins(0, 0, 0, 0)
-        self._tail.setLayout(self._tail_layout)
-        self.tail = Tail(self._tail, main=self)
-        self._tail_layout.addWidget(self.tail)
+        #self._tail_layout = QtWidgets.QHBoxLayout()
+        #self._tail_layout.setSpacing(0)
+        #self._tail_layout.setContentsMargins(0, 0, 0, 0)
+        #self._tail.setLayout(self._tail_layout)
+        #self.tail = Tail(self._tail, main=self)
+        #self._tail_layout.addWidget(self.tail)
         self.setMin(1)
-        self.setMax(99)
+        self.setMax(2)
         self.setStart(1)
-        self.setEnd(99)
+        self.setEnd(2)
         self.setDrawValues(True)
 
     def min(self):
