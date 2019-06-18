@@ -1,5 +1,6 @@
 from main import *
 from jobhandler import *
+from rangeSlider import *
 from PyQt5.QtWidgets import QLabel, QMainWindow, QApplication, QWidget, QVBoxLayout, QHBoxLayout, QScrollArea, QSlider, QSpacerItem, QLineEdit, QPushButton, QFrame, QRadioButton
 from PyQt5.QtGui import QPixmap, QMouseEvent, QImage, QIntValidator
 import os, time, binascii, cv2
@@ -11,13 +12,12 @@ class RangeSlidersWidget(QMainWindow):
         self.job = job
         self.width = 100
         self.height = 100
-        self.initUI()
         self.rangeSliders = []
-
+        self.initUI()
 
     def initUI(self):
         self.setStyleSheet("background-color: rgb(70, 70, 70); border: 1px solid rgb(30, 30, 30);")
-        self.setWindowFlags(Qt.FramelessWindowHint|Qt.ToolTip|Qt.WindowStaysOnTopHint)
+        self.setWindowFlags(Qt.ToolTip|Qt.WindowTitleHint)
         self.centralWidget = QWidget()
         self.setCentralWidget(self.centralWidget)
         self.layMain = QVBoxLayout(self.centralWidget)
@@ -32,11 +32,17 @@ class RangeSlidersWidget(QMainWindow):
         self.rangeSlidersLayouts = [QHBoxLayout(self.centralWidget) for x in self.job.segments]
         [x.setAlignment(Qt.AlignHCenter) for x in self.rangeSlidersLayouts]
 
-        self.rangeSliders = [QSlider(Qt.Horizontal) for x in range(len(self.job.segments))]
-        [x.setMaximum(self.job.frameCount - 1) for x in self.rangeSliders]
-        [x.setStyleSheet("border: 0px") for x in self.rangeSliders]
+        self.rangeSliders = [QRangeSlider() for x in range(len(self.job.segments))]
+
+        [x.setBackgroundStyle('background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #222, stop:1 #333);') for x in self.rangeSliders]
+        [x.handle.setStyleSheet('background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #0D51FE, stop:1 #0642DF);') for x in self.rangeSliders]
+        #[x.setMaximum(self.job.frameCount - 1) for x in self.rangeSliders]
+        #[x.setStyleSheet("border: 0px") for x in self.rangeSliders]
         for i in range(len(self.rangeSliders)):
-            self.rangeSliders[i].setValue(self.job.segments[i][1])
+            self.rangeSliders[i].setMax(self.job.frameCount)
+            self.rangeSliders[i].setRange(self.job.segments[i][0], self.job.segments[i][1])
+            self.rangeSliders[i].endValueChanged.connect(self.updateRange)
+            #self.rangeSliders[i].startValueChanged.connect(self.updateRange)
 
         self.addBlackButtons = [QPushButton('ADD BLACK', self) for x in range(len(self.job.segments))]
         [x.setFixedWidth(66) for x in self.addBlackButtons]
@@ -68,6 +74,19 @@ class RangeSlidersWidget(QMainWindow):
 
         self.height = self.centralWidget.sizeHint().height()
         self.setGeometry(0, 0, self.width, self.height)
+        print(self.sizeHint())
+        print(self.centralWidget.sizeHint())
+        print(self.layTop.sizeHint())
+        print(self.layAddOn.sizeHint())
+
+    def updateRange(self):
+        for i in range(len(self.rangeSliders)):
+            print('yo')
+            if self.rangeSliders[i] == self.sender():
+                print('elo')
+                range = self.rangeSliders[i].getRange()
+                self.job.segments[i][0] = range[0]
+                self.job.segments[i][1] = range[1]
 
     def addSlider(self):
         self.rangeSlidersLayouts.append(QHBoxLayout(self.centralWidget))
@@ -98,20 +117,25 @@ class RangeSlidersWidget(QMainWindow):
         self.move(self.pos().x(), self.pos().y() - 21)
 
     def removeSlider(self):
-        print(self.job.segments)
-        for i in range(1, len(self.removeButtons)):
+        for i in range(1, len(self.job.segments)):
             if self.removeButtons[i] == self.sender():
+                self.height = self.sizeHint().height() - 50
+                self.resize(self.width, self.height)
+                self.rangeSliders[i].setParent(None)
+                self.rangeSliders[i].deleteLater()
+                self.addBlackButtons[i].setParent(None)
+                self.addBlackButtons[i].deleteLater()
+                self.removeButtons[i].setParent(None)
+                self.removeButtons[i].deleteLater()
                 self.rangeSlidersLayouts[i].setParent(None)
                 self.rangeSlidersLayouts[i].deleteLater()
-                #self.rangeSliders[i].deleteLater()
-                #self.addBlackButtons[i].setParent(None)
-                #self.removeButtons[i].setParent(None)
-                self.job.segments.pop(i)
-                #self.rangeSliders.pop(i)
-                #self.addBlackButtons.pop(i)
-                #self.removeButtons.pop(i)
-        print(self.job.segments)
-
+                del(self.removeButtons[i])
+                del(self.addBlackButtons[i])
+                del(self.rangeSliders[i])
+                del(self.job.segments[i])
+                del(self.rangeSlidersLayouts[i])
+                self.move(self.pos().x(), self.pos().y() + 21)
+                break
 
     def toggleAppend(self):
         for i in range(len(self.addBlackButtons)):
@@ -124,7 +148,7 @@ class RangeSlidersWidget(QMainWindow):
                     self.addBlackButtons[i].setStyleSheet("background-color: rgb(50, 50, 50); color: green;")
 
     def updatePosition(self, x, y):
-        self.move(x, y - self.height + 8)
+        self.move(x - 4, y - self.height + 8)
 
 class MyLabel(QLabel):
     coordSignal = QtCore.pyqtSignal(int, int, int, int)
@@ -198,6 +222,7 @@ class Cropper(QMainWindow):
         self.job = job
         self.sl = None
         self.slidersWidget = None
+        self.swtoggled = False
         self.minWidth = None
         self.editLock = False
         self.setWindowTitle("EDIT | RES: %s" % self.job.resolution)
@@ -339,7 +364,7 @@ class Cropper(QMainWindow):
 
         self.show()
         if self.slidersWidget:
-            self.slidersWidget.setFixedWidth(self.sl.frameGeometry().width() + 66 + 24)
+            self.slidersWidget.setFixedWidth(self.sl.frameGeometry().width() + 66 + 36)
             self.moveEvent(None)
 
         self.xwValidator = QIntValidator(0, self.label.geometry().width())
@@ -520,8 +545,20 @@ class Cropper(QMainWindow):
         if self.slidersWidget:
             self.slidersWidget.close()
 
+    def focusInEvent(self, e):
+        super(QMainWindow, self).focusInEvent(e)
+        if self.swtoggled:
+            self.slidersWidget.show()
+
+    def focusOutEvent(self, e):
+        super(QMainWindow, self).focusOutEvent(e)
+        if self.swtoggled:
+            self.slidersWidget.hide()
+
     def slidersWidgetChangeState(self):
         if self.slidersButton.isChecked():
             self.slidersWidget.show()
+            self.swtoggled = True
         else:
             self.slidersWidget.hide()
+            self.swtoggled = False
