@@ -33,15 +33,15 @@ QRangeSlider > QSplitter::handle:pressed {
 """
 
 def scale(val, src, dst):
-    print('val: ', val)
+    #print('val: ', val)
     res = int(((val - src[0]) / float(src[1]-src[0])) * (dst[1]-dst[0]) + dst[0])
-    print('result: ', res)
+    #print('result: ', res)
     return(res)
 
 class Ui_Form(object):
     def setupUi(self, Form):
         Form.setObjectName("QRangeSlider")
-        #Form.resize(160, 30)
+        #Form.resize(192, 30)
         Form.setStyleSheet(DEFAULT_CSS)
         self.gridLayout = QtWidgets.QGridLayout(Form)
         self.gridLayout.setContentsMargins(0, 0, 0, 0)
@@ -146,12 +146,6 @@ class QRangeSlider(QtWidgets.QWidget, Ui_Form):
         self.setupUi(self)
         self.setMouseTracking(False)
         self._splitter.splitterMoved.connect(self._handleMoveSplitter)
-        #self._head_layout = QtWidgets.QHBoxLayout()
-        #self._head_layout.setSpacing(0)
-        #self._head_layout.setContentsMargins(0, 0, 0, 0)
-        #self._head.setLayout(self._head_layout)
-        #self.head = Head(self._head, main=self)
-        #self._head_layout.addWidget(self.head)
         self._handle_layout = QtWidgets.QHBoxLayout()
         self._handle_layout.setSpacing(0)
         self._handle_layout.setContentsMargins(2, 0, 2, 0)
@@ -159,17 +153,11 @@ class QRangeSlider(QtWidgets.QWidget, Ui_Form):
         self.handle = Handle(self._handle, main=self)
         self.handle.setTextColor((150, 255, 150))
         self._handle_layout.addWidget(self.handle)
-        #self._tail_layout = QtWidgets.QHBoxLayout()
-        #self._tail_layout.setSpacing(0)
-        #self._tail_layout.setContentsMargins(0, 0, 0, 0)
-        #self._tail.setLayout(self._tail_layout)
-        #self.tail = Tail(self._tail, main=self)
-        #self._tail_layout.addWidget(self.tail)
         self.setMin(1)
         self.setMax(2)
         self.setStart(1)
         self.setEnd(2)
-        self.setDrawValues(True)
+        self.setDrawValues(False)
 
     def min(self):
         return getattr(self, '__min', None)
@@ -194,6 +182,7 @@ class QRangeSlider(QtWidgets.QWidget, Ui_Form):
     def _setStart(self, value):
         setattr(self, '__start', value)
         self.startValueChanged.emit(value)
+        self._handle.setToolTip(str(self.start()) + ' - ' + str(self.end()))
 
     def setStart(self, value):
         v = self._valueToPos(value)
@@ -205,6 +194,7 @@ class QRangeSlider(QtWidgets.QWidget, Ui_Form):
     def _setEnd(self, value):
         setattr(self, '__end', value)
         self.endValueChanged.emit(value)
+        self._handle.setToolTip(str(self.start()) + ' - ' + str(self.end()))
 
     def setEnd(self, value):
         v = self._valueToPos(value)
