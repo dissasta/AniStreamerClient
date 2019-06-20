@@ -546,7 +546,7 @@ class JobScanner(QtCore.QThread):
                 aniCondition = re.findall('Stream #0:0\[\S+\]: Video', err) and re.findall('Stream #0:1\[\S+\]: Video', err)
                 webmCondition = re.findall('Stream #0:0: Video: vp8', err) or re.findall('Stream #0:0: Video: vp9', err) or re.findall('Stream #0:0\(\S+\): Video: vp9', err) or re.findall('Stream #0:0\(\S+\): Video: vp8', err)
 
-                if re.findall('Stream #0:0\(\S+\): Video|Stream #0:0: Video|Stream #0:1\(\S+\): Video', err) or aniCondition:
+                if re.findall('Stream #0:0\(\S+\): Video|Stream #0:0: Video|Stream #0:0\[0x1e0\]: Video: mpeg2video|Stream #0:1\(\S+\): Video', err) or aniCondition:
                     job.valid = True
                     alpha = any(x in err for x in alphaTags)
 

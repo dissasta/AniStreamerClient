@@ -8,6 +8,7 @@ QRangeSlider * {
     border: 0px;
     padding: 0px;
 }
+
 QRangeSlider #Head {
     background: #222;
 }
@@ -33,15 +34,11 @@ QRangeSlider > QSplitter::handle:pressed {
 """
 
 def scale(val, src, dst):
-    #print('val: ', val)
     res = int(((val - src[0]) / float(src[1]-src[0])) * (dst[1]-dst[0]) + dst[0])
-    #print('result: ', res)
     return(res)
 
 class Ui_Form(object):
     def setupUi(self, Form):
-        Form.setObjectName("QRangeSlider")
-        #Form.resize(192, 30)
         Form.setStyleSheet(DEFAULT_CSS)
         self.gridLayout = QtWidgets.QGridLayout(Form)
         self.gridLayout.setContentsMargins(0, 0, 0, 0)
