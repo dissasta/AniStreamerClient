@@ -126,12 +126,13 @@ class RangeSlidersWidget(QMainWindow):
         self.job.segments.append([1, self.job.frameCount, 0])
 
         self.height = self.centralWidget.sizeHint().height() + 21
+        self.setFixedHeight(self.sizeHint().height() + 21)
         self.move(self.pos().x(), self.pos().y() - 21)
 
     def removeSlider(self):
         for i in range(1, len(self.job.segments)):
             if self.removeButtons[i] == self.sender():
-                self.height = self.sizeHint().height() - 50
+                #self.height = self.sizeHint().height() - 50
                 self.resize(self.width, self.height)
                 self.rangeSliders[i].setParent(None)
                 self.rangeSliders[i].deleteLater()
@@ -147,6 +148,8 @@ class RangeSlidersWidget(QMainWindow):
                 del(self.job.segments[i])
                 del(self.rangeSlidersLayouts[i])
                 self.move(self.pos().x(), self.pos().y() + 21)
+                self.height -= 21
+                self.setFixedHeight(self.sizeHint().height() - 21)
                 break
 
     def toggleAppend(self):
