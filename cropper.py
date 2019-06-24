@@ -510,6 +510,7 @@ class Cropper(QMainWindow):
         else:
             self.job.appendBlack = True
             self.addBlackLabel.setStyleSheet("background-color: rgb(50, 50, 50); color: green;")
+        print(self.job.segments)
 
     def updateTC(self, frames):
         hh = int(frames / 60 / 60 / self.job.fps)

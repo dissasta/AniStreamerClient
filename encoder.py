@@ -80,6 +80,8 @@ class Encoder(QtCore.QThread):
             elif job.type == 'Sequence':
                 source = os.path.join(job.path, job.matrix)
                 for i in range(len(job.segments)):
+                    job.segments[i][0] += job.ffmpegFrameOffset
+                    job.segments[i][1] += job.ffmpegFrameOffset
                     if len(job.segments) > 1:
                         temp = os.path.join(tempDir, job.outFilename.text() + '_seg' + str(i + 1))
                     else:
@@ -123,19 +125,28 @@ class Encoder(QtCore.QThread):
                         temp += '.mov'
                         orgHRes = self.makeResEven(int(orgHRes), 4)
                         job.segments[i].append(temp)
-                        encode = subprocess.Popen('ffmpeg -start_number ' + str(job.segments[i][0]) + ' -t ' + str(float(job.segments[i][1] - job.segments[i][0] + 1) / 25) + ' -i ' + '"' + source + '"' + ' -y -filter_complex "[0:0]crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + '" -pix_fmt argb -vcodec qtrle -an ' + '"' + temp + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si, universal_newlines=True)
+                        if job.segments[i][2]:
+                            encode = subprocess.Popen('ffmpeg -f lavfi -i color=c=black:s=' + hRes + 'x' + vRes + ':r=25:d=0.04 -start_number ' + str(job.segments[i][0]) + ' -t ' + str(float(job.segments[i][1] - job.segments[i][0] + 1) / 25) + ' -i ' + '"' + source + '"' + ' -y -filter_complex "[1:0]crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + '[fill1];[0:0]colorkey=black,crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + '[fill2];[fill1][fill2]concat[out]' + '" -pix_fmt argb -vcodec qtrle -an -map "[out]" ' + '"' + temp + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si, universal_newlines=True)
+                        else:
+                            encode = subprocess.Popen('ffmpeg -start_number ' + str(job.segments[i][0]) + ' -t ' + str(float(job.segments[i][1] - job.segments[i][0] + 1) / 25) + ' -i ' + '"' + source + '"' + ' -y -filter_complex "[0:0]crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + '" -pix_fmt argb -vcodec qtrle -an ' + '"' + temp + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si, universal_newlines=True)
 
                     elif job.format.currentText() == 'MOV-MATTE':
                         temp += '.mov'
                         orgHRes = self.makeResEven(int(orgHRes), 4)
                         job.segments[i].append(temp)
-                        encode = subprocess.Popen('ffmpeg -start_number ' + str(job.segments[i][0]) + ' -t ' + str(float(job.segments[i][1] - job.segments[i][0] + 1) / 25) + ' -i ' + '"' + source + '"' + ' -y -filter_complex "[0:0]alphaextract,crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + '" -pix_fmt gray -vcodec qtrle -an ' + '"' + temp + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si, universal_newlines=True)
+                        if job.segments[i][2]:
+                            encode = subprocess.Popen('ffmpeg -f lavfi -i color=c=black:s=' + hRes + 'x' + vRes + ':r=25:d=0.04 -start_number ' + str(job.segments[i][0]) + ' -t ' + str(float(job.segments[i][1] - job.segments[i][0] + 1) / 25) + ' -i ' + '"' + source + '"' + ' -y -filter_complex "[1:0]alphaextract,crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + '[fill1];[0:0]colorkey=black,crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + '[fill2];[fill1][fill2]concat[out]' + '" -pix_fmt gray -vcodec qtrle -an -map "[out]" ' + '"' + temp + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si, universal_newlines=True)
+                        else:
+                            encode = subprocess.Popen('ffmpeg -start_number ' + str(job.segments[i][0]) + ' -t ' + str(float(job.segments[i][1] - job.segments[i][0] + 1) / 25) + ' -i ' + '"' + source + '"' + ' -y -filter_complex "[0:0]alphaextract,crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + '" -pix_fmt gray -vcodec qtrle -an ' + '"' + temp + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si, universal_newlines=True)
 
                     elif job.format.currentText() == 'MOV-INV-MATTE':
                         temp += '.mov'
                         orgHRes = self.makeResEven(int(orgHRes), 4)
                         job.segments[i].append(temp)
-                        encode = subprocess.Popen('ffmpeg -start_number ' + str(job.segments[i][0]) + ' -t ' + str(float(job.segments[i][1] - job.segments[i][0] + 1) / 25) + ' -i ' + '"' + source + '"' + ' -y -filter_complex "[0:0]alphaextract,crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + ',negate" -pix_fmt gray -vcodec qtrle -an ' + '"' + temp + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si, universal_newlines=True)
+                        if job.segments[i][2]:
+                            encode = subprocess.Popen('ffmpeg -f lavfi -i color=c=black:s=' + hRes + 'x' + vRes + ':r=25:d=0.04 -start_number ' + str(job.segments[i][0]) + ' -t ' + str(float(job.segments[i][1] - job.segments[i][0] + 1) / 25) + ' -i ' + '"' + source + '"' + ' -y -filter_complex "[1:0]alphaextract,negate,crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + '[fill1];[0:0]colorkey=black,crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + '[fill2];[fill1][fill2]concat[out]' + '" -pix_fmt gray -vcodec qtrle -an -map "[out]" ' + '"' + temp + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si, universal_newlines=True)
+                        else:
+                            encode = subprocess.Popen('ffmpeg -start_number ' + str(job.segments[i][0]) + ' -t ' + str(float(job.segments[i][1] - job.segments[i][0] + 1) / 25) + ' -i ' + '"' + source + '"' + ' -y -filter_complex "[0:0]alphaextract,negate,crop=' + orgHRes + ':' + orgVRes + ':' + xPos + ':' + yPos + '" -pix_fmt gray -vcodec qtrle -an ' + '"' + temp + '"', shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, startupinfo=si, universal_newlines=True)
 
                     elif job.format.currentText() == "PNG SEQUENCE 2xFPS":
                         if len(job.segments) == 1:
@@ -157,7 +168,7 @@ class Encoder(QtCore.QThread):
                             frames = re.findall('frame= +\d+', line)
                             if frames:
                                 if job.format.currentText() == "PNG SEQUENCE 2xFPS":
-                                    self.progressBarPass.emit((job.segments[i][1] - job.segments[i][0] * 2) - 1, int(re.findall('\d+', frames[0])[0]), True)
+                                    self.progressBarPass.emit(((job.segments[i][1] - job.segments[i][0] + 1) * 2) - 1, int(re.findall('\d+', frames[0])[0]), True)
                                 else:
                                     self.progressBarPass.emit(job.segments[i][1] - job.segments[i][0] + 1, int(re.findall('\d+', frames[0])[0]), True)
                         if "no such file or directory" in out:

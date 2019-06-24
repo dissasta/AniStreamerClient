@@ -41,6 +41,7 @@ class Asset(object):
         self.ingestable = False
         self.extended = False
         self.segments = []
+        self.ffmpegFrameOffset = 0
 
     def btnstate(self):
         if self.ingest:
@@ -414,6 +415,7 @@ class JobScanner(QtCore.QThread):
 
                 self.new_signal2.emit(job, 6, self.getDuration(job))
                 job.firstFrame = re.findall('(\d+)\.', job.content[0])[-1]
+                job.ffmpegFrameOffset = int(job.firstFrame) - 1
 
                 counter = 0
                 for i in job.content:
