@@ -172,52 +172,90 @@ class MyLabel(QLabel):
         self.begin = QtCore.QPoint()
         self.end = QtCore.QPoint()
         self.crop = QLabel(self)
-        self.crop.setGeometry(0,0,0,0)
+        self.crop.x = 0
+        self.crop.y = 0
+        self.crop.w = 0
+        self.crop.h = 0
+        self.crop.setGeometry(self.crop.x,self.crop.y,self.crop.w,self.crop.h)
+        self.dragged = False
         self.crop.setStyleSheet("background-color: rgba(100, 0, 0, 40);border: 1px inset black")
 
     def getPos(self, event):
         pos = [0, 0]
-        if event.pos().x() < 0:
+        """if event.pos().x() < 0:
             pos[0] = 0
         elif event.pos().x() > self.geometry().width():
             pos[0] = self.geometry().width()
-        else:
-            pos[0] = event.pos().x()
+        else:"""
+        pos[0] = event.pos().x()
 
-        if event.pos().y() < 0:
+        """if event.pos().y() < 0:
             pos[1] = 0
         elif event.pos().y() > self.geometry().height():
             pos[1] = self.geometry().height()
-        else:
-            pos[1] = event.pos().y()
+        else:"""
+        pos[1] = event.pos().y()
         return pos
 
     def mousePressEvent(self, event: QMouseEvent):
-        self.crop.setGeometry(0, 0, 0, 0)
-        self.crop.show()
-        self.crop.x, self.crop.y, self.crop.w, self.crop.h = (0, 0 ,0 ,0)
         self.myPosStart = self.getPos(event)
+        if self.myPosStart[0] in range(self.crop.x, self.crop.x + self.crop.w) and self.myPosStart[1] in range(self.crop.y, self.crop.y + self.crop.h):
+            self.dragged = True
+        else:
+            self.crop.setGeometry(0, 0, 0, 0)
+            self.crop.show()
+            self.crop.x, self.crop.y, self.crop.w, self.crop.h = (0, 0 ,0 ,0)
 
     def mouseMoveEvent(self, event):
         self.myPosEnd = self.getPos(event)
-        if self.myPosEnd[0] > self.myPosStart[0]:
-            self.crop.x = self.myPosStart[0]
-            self.crop.w = self.myPosEnd[0] - self.myPosStart[0]
-        else:
-            self.crop.x = self.myPosEnd[0]
-            self.crop.w = self.myPosStart[0] - self.myPosEnd[0]
+        if self.dragged:
+            xOffset = self.myPosEnd[0] - self.myPosStart[0]
+            yOffset = self.myPosEnd[1] - self.myPosStart[1]
 
-        if self.myPosEnd[1] > self.myPosStart[1]:
-            self.crop.y = self.myPosStart[1]
-            self.crop.h = self.myPosEnd[1] - self.myPosStart[1]
-        else:
-            self.crop.y = self.myPosEnd[1]
-            self.crop.h = self.myPosStart[1] - self.myPosEnd[1]
+            if self.crop.x + xOffset <= 0:
+                self.crop.x = 0
 
-        self.crop.setGeometry(self.crop.x, self.crop.y, self.crop.w, self.crop.h)
+            elif self.crop.x + self.crop.w + xOffset >= self.geometry().width():
+                self.crop.x = self.geometry().width() - self.crop.w
+
+            else:
+                self.crop.x += xOffset
+
+            if self.crop.y + yOffset <= 0:
+                self.crop.y = 0
+
+            elif self.crop.y + self.crop.h + yOffset >= self.geometry().height():
+                self.crop.y = self.geometry().height() - self.crop.h
+
+            else:
+                self.crop.y += yOffset
+
+            self.crop.move(self.crop.x, self.crop.y)
+
+            self.myPosStart[0] = self.myPosEnd[0]
+            self.myPosStart[1] = self.myPosEnd[1]
+
+        else:
+            if self.myPosEnd[0] > self.myPosStart[0]:
+                self.crop.x = self.myPosStart[0]
+                self.crop.w = self.myPosEnd[0] - self.myPosStart[0]
+            else:
+                self.crop.x = self.myPosEnd[0]
+                self.crop.w = self.myPosStart[0] - self.myPosEnd[0]
+
+            if self.myPosEnd[1] > self.myPosStart[1]:
+                self.crop.y = self.myPosStart[1]
+                self.crop.h = self.myPosEnd[1] - self.myPosStart[1]
+            else:
+                self.crop.y = self.myPosEnd[1]
+                self.crop.h = self.myPosStart[1] - self.myPosEnd[1]
+
+            self.crop.setGeometry(self.crop.x, self.crop.y, self.crop.w, self.crop.h)
+
         self.coordSignal.emit(self.crop.x, self.crop.y, self.crop.w, self.crop.h)
 
     def mouseReleaseEvent(self, event):
+        self.dragged = False
         self.coordSignal.emit(self.crop.x, self.crop.y, self.crop.w, self.crop.h)
 
     def enterEvent(self, event):
@@ -510,7 +548,6 @@ class Cropper(QMainWindow):
         else:
             self.job.appendBlack = True
             self.addBlackLabel.setStyleSheet("background-color: rgb(50, 50, 50); color: green;")
-        print(self.job.segments)
 
     def updateTC(self, frames):
         hh = int(frames / 60 / 60 / self.job.fps)

@@ -7,9 +7,9 @@ from PyQt5 import QtCore
 from PyQt5.QtWidgets import QTreeWidget, QTreeWidgetItem, QApplication, QWidget
 
 sequenceAssetTypes = ['.tga', '.png']
-videoAssetTypes = ['.ani', '.mov', '.mpeg', '.mpg', '.mkv', '.avi', '.mp4', '.wmv', '.m2v', '.mxf', '.webm']
+videoAssetTypes = ['.ani', '.mov', '.mpeg', '.mpg', '.mkv', '.avi', '.mp4', '.wmv', '.m2v', '.mxf', '.webm', '.flv']
 archiveAssetTypes = ['.zip', '.tar', '.rar', '.7z']
-alphaTags = ['rgba', 'brga', 'bgra', 'argb', 'alpha_mode      : 1']
+alphaTags = ['rgba', 'brga', 'bgra', 'argb', 'yuva420p', 'alpha_mode      : 1']
 
 si = subprocess.STARTUPINFO()
 si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
@@ -124,6 +124,8 @@ class Video(Asset):
         self.format = None
         self.isANI = False
         self.isWEBM = False
+        self.isFLV = False
+        self.streamID = '0'
         self.localFormatsAlpha = ['', 'ANI', 'ANI-MATTE', 'ANI-INV-MATTE', 'WEBM-VP9', 'MOV', 'MOV-MATTE', 'MOV-INV-MATTE', 'CH5-MXF', 'PNG SEQUENCE', 'TGA SEQUENCE', 'PNG SEQUENCE 2xFPS']
         self.localFormatsNoAlpha = ['', 'CH5-MXF', 'PNG SEQUENCE', 'TGA SEQUENCE', 'PNG SEQUENCE 2xFPS']
         self.ingestFormats = ['', 'ANI', 'WEBM-VP9', 'MOV']
@@ -547,8 +549,9 @@ class JobScanner(QtCore.QThread):
                 err = err.decode('utf-8')
                 aniCondition = re.findall('Stream #0:0\[\S+\]: Video', err) and re.findall('Stream #0:1\[\S+\]: Video', err)
                 webmCondition = re.findall('Stream #0:0: Video: vp8', err) or re.findall('Stream #0:0: Video: vp9', err) or re.findall('Stream #0:0\(\S+\): Video: vp9', err) or re.findall('Stream #0:0\(\S+\): Video: vp8', err)
+                FLVCondition = re.findall('Stream #0:1: Video: vp6a', err) or re.findall('Stream #0:1: Video: vp6f', err)
 
-                if re.findall('Stream #0:0\(\S+\): Video|Stream #0:0: Video|Stream #0:1\(\S+\): Video', err) or aniCondition:
+                if re.findall('Stream #0:0\(\S+\): Video|Stream #0:0: Video|Stream #0:1\(\S+\): Video', err) or aniCondition or FLVCondition:
                     job.valid = True
                     alpha = any(x in err for x in alphaTags)
 
@@ -589,6 +592,15 @@ class JobScanner(QtCore.QThread):
                             job.ffmpegDecoderString = '-vcodec libvpx '
                         job.ingestFormats[1] = 'PASS-THROUGH'
                         job.localFormatsAlpha.remove('WEBM-VP9')
+
+                    if job.ext == '.flv' and FLVCondition:
+                        job.isFLV = True
+                        job.streamID = '1'
+                        if 'vp6a' in FLVCondition[0]:
+                            job.ffmpegDecoderString = '-vcodec vp6a '
+                        else:
+                            job.ffmpegDecoderString = '-vcodec vp6f '
+                        job.ingestFormats[1] = 'PASS-THROUGH'
 
                     self.new_signal2.emit(job, 6, job.duration)
 
