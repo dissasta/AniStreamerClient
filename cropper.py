@@ -165,21 +165,72 @@ class RangeSlidersWidget(QMainWindow):
     def updatePosition(self, x, y):
         self.move(x - 4, y - self.height + 8)
 
+class mouseOverEvent(QtCore.QObject):
+    def __init__(self, parent):
+        super(mouseOverEvent, self).__init__(parent)
+
+    def eventFilter(self, object, event):
+        if event.type() == QtCore.QEvent.MouseMove:
+            if not object.dragging:
+                if event.pos().x() == 0:
+                    object.dragable = 'W'
+                    object.cursor = Qt.SizeHorCursor
+                elif event.pos().x() == object.width() - 1:
+                    object.dragable = 'E'
+                    object.cursor = Qt.SizeHorCursor
+                elif event.pos().y() == 0:
+                    object.dragable = 'N'
+                    object.cursor = Qt.SizeVerCursor
+                elif event.pos().y() == object.height() - 1:
+                    object.dragable = 'S'
+                    object.cursor = Qt.SizeVerCursor
+                else:
+                    object.dragable = 'C'
+                    object.cursor = Qt.OpenHandCursor
+
+                object.setCursor(object.cursor)
+
+        if event.type() == QtCore.QEvent.MouseButtonPress:
+            object.setCursor(Qt.ClosedHandCursor)
+            object.dragging = True
+
+        if event.type() == QtCore.QEvent.MouseButtonRelease:
+            object.setCursor(object.cursor)
+            object.dragging = False
+
+        return super(mouseOverEvent, self).eventFilter(object, event)
+
+class cropQLabel(QLabel):
+    def __init__(self, parent, x, y, w, h):
+        QLabel.__init__(self, parent)
+        self.parent = parent
+        self.x = x
+        self.y = y
+        self.w = w
+        self.h = h
+        self.ends = 0
+        self.dragable = False
+        self.dragging = False
+        self.setGeometry(self.x, self.y, self.w, self.h)
+        self.setStyleSheet("background-color: rgba(100, 0, 0, 40);border: 1px inset black")
+        self.setMouseTracking(True)
+        self.filter = mouseOverEvent(self)
+        self.installEventFilter(self.filter)
+
+    def leaveEvent(self, event):
+        self.dragable = False
+        self.setCursor(Qt.ArrowCursor)
+
 class MyLabel(QLabel):
     coordSignal = QtCore.pyqtSignal(int, int, int, int)
-    def __init__(self):
-        QLabel.__init__(self)
+    def __init__(self, parent):
+        QLabel.__init__(self, parent)
         self.begin = QtCore.QPoint()
         self.end = QtCore.QPoint()
-        self.crop = QLabel(self)
-        self.crop.x = 0
-        self.crop.y = 0
-        self.crop.w = 0
-        self.crop.h = 0
-        self.crop.ends = 0
-        self.crop.setGeometry(self.crop.x,self.crop.y,self.crop.w,self.crop.h)
-        self.dragged = False
-        self.crop.setStyleSheet("background-color: rgba(100, 0, 0, 40);border: 1px inset black")
+        if parent.job.crop:
+            self.crop = cropQLabel(self, parent.job.crop[0], parent.job.crop[1], parent.job.crop[2], parent.job.crop[3])
+        else:
+            self.crop = cropQLabel(self, 0, 0, 0, 0)
 
     def getPos(self, event):
         pos = [0, 0]
@@ -200,27 +251,16 @@ class MyLabel(QLabel):
 
     def mousePressEvent(self, event: QMouseEvent):
         self.myPosStart = self.getPos(event)
-        if self.myPosStart[0] in range(self.crop.x + 4, self.crop.x + self.crop.w - 4) and self.myPosStart[1] in range(self.crop.y + 4, self.crop.y + self.crop.h - 4):
-            self.dragged = 'C'
-        elif self.myPosStart[0] in range(self.crop.x, self.crop.x + 4) and self.myPosStart[1] in range(self.crop.y, self.crop.y + self.crop.h):
-            self.dragged = 'W'
-        elif self.myPosStart[0] in range(self.crop.x + self.crop.w - 4, self.crop.x + self.crop.w) and self.myPosStart[1] in range(self.crop.y, self.crop.y + self.crop.h):
-            self.dragged = 'E'
-        elif self.myPosStart[1] in range(self.crop.y, self.crop.y + 4) and self.myPosStart[0] in range(self.crop.x, self.crop.x + self.crop.w):
-            self.dragged = 'N'
-        elif self.myPosStart[1] in range(self.crop.y + self.crop.h - 4, self.crop.y + self.crop.h) and self.myPosStart[0] in range(self.crop.x, self.crop.x + self.crop.w):
-            self.dragged = 'S'
+        if self.crop.dragging:
+            self.crop.ends = (self.crop.x + self.crop.w, self.crop.y + self.crop.h)
         else:
             self.crop.setGeometry(0, 0, 0, 0)
             self.crop.show()
             self.crop.x, self.crop.y, self.crop.w, self.crop.h = (0, 0 ,0 ,0)
 
-        if self.dragged:
-            self.crop.ends = (self.crop.x + self.crop.w, self.crop.y + self.crop.h)
-
     def mouseMoveEvent(self, event):
         self.myPosEnd = self.getPos(event)
-        if self.dragged == 'C':
+        if self.crop.dragable == 'C':
             xOffset = self.myPosEnd[0] - self.myPosStart[0]
             yOffset = self.myPosEnd[1] - self.myPosStart[1]
 
@@ -247,7 +287,7 @@ class MyLabel(QLabel):
             self.myPosStart[0] = self.myPosEnd[0]
             self.myPosStart[1] = self.myPosEnd[1]
 
-        elif self.dragged == 'W':
+        elif self.crop.dragable == 'W':
             xOffset = self.myPosEnd[0] - self.myPosStart[0]
 
             if self.myPosEnd[0] < 0:
@@ -263,7 +303,7 @@ class MyLabel(QLabel):
                 self.crop.x += xOffset
                 self.myPosStart[0] = self.myPosEnd[0]
 
-        elif self.dragged == 'E':
+        elif self.crop.dragable == 'E':
             xOffset = self.myPosEnd[0] - self.myPosStart[0]
 
             if self.myPosEnd[0] > self.geometry().width():
@@ -276,7 +316,7 @@ class MyLabel(QLabel):
                 self.crop.w += xOffset
                 self.myPosStart[0] = self.myPosEnd[0]
 
-        elif self.dragged == 'N':
+        elif self.crop.dragable == 'N':
             yOffset = self.myPosEnd[1] - self.myPosStart[1]
 
             if self.myPosEnd[1] < 0:
@@ -292,7 +332,7 @@ class MyLabel(QLabel):
                 self.crop.y += yOffset
                 self.myPosStart[1] = self.myPosEnd[1]
 
-        elif self.dragged == 'S':
+        elif self.crop.dragable == 'S':
             yOffset = self.myPosEnd[1] - self.myPosStart[1]
 
             if self.myPosEnd[1] > self.geometry().height():
@@ -320,13 +360,11 @@ class MyLabel(QLabel):
                 self.crop.y = self.myPosEnd[1]
                 self.crop.h = self.myPosStart[1] - self.myPosEnd[1]
 
-        if not self.dragged:
-            self.crop.setGeometry(self.crop.x, self.crop.y, self.crop.w, self.crop.h)
-
+        #self.crop.setGeometry(self.crop.x, self.crop.y, self.crop.w, self.crop.h)
         self.coordSignal.emit(self.crop.x, self.crop.y, self.crop.w, self.crop.h)
 
     def mouseReleaseEvent(self, event):
-        self.dragged = False
+        self.crop.dragable = False
         self.coordSignal.emit(self.crop.x, self.crop.y, self.crop.w, self.crop.h)
 
     def enterEvent(self, event):
@@ -367,7 +405,7 @@ class Cropper(QMainWindow):
         self.scrollArea.setStyleSheet("background-color: rgb(60, 63, 65);")
         self.scrollArea.setObjectName("PREVIEW")
         self.scrollArea.setEnabled(True)
-        self.label = MyLabel()
+        self.label = MyLabel(self)
         self.scrollArea.setWidget(self.label)
         self.layTop.addWidget(self.scrollArea)
         self.lay.addLayout(self.layTop)
@@ -536,6 +574,7 @@ class Cropper(QMainWindow):
 
     def setCoords(self):
         coords = [x.text() for x in self.coordinateEntry]
+        print(coords)
         if not '' in coords and int(coords[2]) != 0 and int(coords[3]) != 0:
             if int(coords[0]) + int(coords[2]) > self.label.geometry().width():
                self.coordinateEntry[2].setText(str(self.label.geometry().width() - int(coords[0])))

@@ -27,7 +27,7 @@ class Asset(object):
         self.type = ''
         self.alpha = False
         self.resolution = None
-        self.crop = None
+        self.crop = [0, 0, 0, 0]
         self.ingest = False
         if os.path.isfile(path):
             self.ext = '.' + os.path.basename(path).split('.')[-1]
