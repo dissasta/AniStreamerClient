@@ -573,15 +573,20 @@ class Cropper(QMainWindow):
         [x.setText('0') for x in self.coordinateEntry]
 
     def setCoords(self):
+        print('elo')
         coords = [x.text() for x in self.coordinateEntry]
-        print(coords)
         if not '' in coords and int(coords[2]) != 0 and int(coords[3]) != 0:
             if int(coords[0]) + int(coords[2]) > self.label.geometry().width():
-               self.coordinateEntry[2].setText(str(self.label.geometry().width() - int(coords[0])))
+                newWidth = self.label.geometry().width() - int(coords[0])
+                self.coordinateEntry[2].setText(str(newWidth))
+                coords[2] = newWidth
             if int(coords[1]) + int(coords[3]) > self.label.geometry().height():
-               self.coordinateEntry[3].setText(str(self.label.geometry().height() - int(coords[1])))
+                newHeight = self.label.geometry().height() - int(coords[1])
+                self.coordinateEntry[3].setText(str(newHeight))
+                coords[3] = newHeight
             self.label.crop.show()
             self.label.crop.setGeometry(int(coords[0]), int(coords[1]), int(coords[2]), int(coords[3]))
+            self.label.crop.x, self.label.crop.y, self.label.crop.w, self.label.crop.h = (int(coords[0]), int(coords[1]), int(coords[2]), int(coords[3]))
             self.job.crop = [int(coords[0]), int(coords[1]), int(coords[2]), int(coords[3])]
             self.job.edit.setStyleSheet("background-color: rgb(50, 50, 50); color: green;")
         else:
