@@ -49,6 +49,11 @@ class Asset(object):
 
     def toggleRunJobButton(self):
         self.outFilename.setText(''.join(ch for ch in self.outFilename.text() if ch not in '<>:"/\|?*'))
+        if len(self.outFilename.text()) > 40:
+            self.outFilename.setStyleSheet("color: rgb(244, 41, 65);")
+        else:
+            self.outFilename.setStyleSheet("color: grey;")
+
         if self.format.currentText() and self.outFilename.text():
             self.runJob.setEnabled(1)
             self.runJob.setStyleSheet("background-color: rgb(50, 50, 50); color: gold;")
@@ -306,9 +311,9 @@ class JobScanner(QtCore.QThread):
             #self.jobsReadySignal.emit(1)
             break
             #time.sleep(5)
-            for i in self.allFolders:
-                for job in i.jobs:
-                    print(job.outFilename.text())
+            #for i in self.allFolders:
+            #    for job in i.jobs:
+            #        print(job.outFilename.text())
 
     def createFolders(self):
         if not os.path.exists(tempDir):
@@ -623,7 +628,10 @@ class JobScanner(QtCore.QThread):
                 job.edit.setEnabled(1)
                 job.edit.setStyleSheet("background-color: rgb(50, 50, 50); color: gold;")
                 job.fillFormats()
-                job.outFilename.setText(job.genOutFilename())
+                filename = job.genOutFilename()
+                if len(filename) > 40:
+                    job.outFilename.setStyleSheet("color: rgb(244, 41, 65);")
+                job.outFilename.setText(filename)
                 job.outFilename.setCursorPosition(0)
                 job.outFilename.setEnabled(1)
 

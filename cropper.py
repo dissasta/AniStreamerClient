@@ -573,7 +573,6 @@ class Cropper(QMainWindow):
         [x.setText('0') for x in self.coordinateEntry]
 
     def setCoords(self):
-        print('elo')
         coords = [x.text() for x in self.coordinateEntry]
         if not '' in coords and int(coords[2]) != 0 and int(coords[3]) != 0:
             if int(coords[0]) + int(coords[2]) > self.label.geometry().width():
