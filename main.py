@@ -133,6 +133,7 @@ class JobHandlerWidget(QWidget):
                 o.outFilename = QLineEdit()
                 o.outFilename.setEnabled(0)
                 o.outFilename.editingFinished.connect(o.toggleRunJobButton)
+                o.outFilename.textChanged.connect(o.reverifyFilename)
                 self.tree.setItemWidget(o.widgetItem, 11, o.outFilename)
 
                 o.runJob = QPushButton('RUN', self)
@@ -190,6 +191,7 @@ class JobHandlerWidget(QWidget):
 
                 job.outFilename = QLineEdit()
                 job.outFilename.setEnabled(0)
+                job.outFilename.textChanged.connect(job.reverifyFilename)
                 job.outFilename.editingFinished.connect(job.toggleRunJobButton)
                 self.tree.setItemWidget(job.widgetItem, 11, job.outFilename)
 

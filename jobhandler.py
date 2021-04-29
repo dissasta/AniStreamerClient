@@ -47,12 +47,15 @@ class Asset(object):
         if self.ingest:
             self.fillFormats()
 
-    def toggleRunJobButton(self):
-        self.outFilename.setText(''.join(ch for ch in self.outFilename.text() if ch not in '<>:"/\|?*!,.^@$&#()=+{}[];:%s~`' %"'"))
+    def reverifyFilename(self):
         if len(self.outFilename.text()) > 40:
             self.outFilename.setStyleSheet("color: rgb(244, 41, 65);")
         else:
             self.outFilename.setStyleSheet("color: grey;")
+
+    def toggleRunJobButton(self):
+        self.outFilename.setText(''.join(ch for ch in self.outFilename.text() if ch not in '<>:"/\|?*!,.^@$&#()=+{}[];:%s~`' %"'"))
+        self.reverifyFilename()
 
         if self.format.currentText() and self.outFilename.text():
             self.runJob.setEnabled(1)
@@ -117,7 +120,10 @@ class Asset(object):
             elif ('_out' in parentFolder or ' out' in parentFolder) and (' out' in filename or '_out' in filename):
                 outputFile = outputFile
 
-        return outputFile.rstrip().lstrip()
+        outputFile = str(outputFile.rstrip().lstrip())
+
+        return (''.join(ch for ch in outputFile if ch not in '<>:"/\|?*!,.^@$&#()=+{}[];:%s~`' %"'"))
+        #return outputFile.rstrip().lstrip()
 
 class Video(Asset):
     def __init__(self, path):
