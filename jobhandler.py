@@ -48,7 +48,7 @@ class Asset(object):
             self.fillFormats()
 
     def reverifyFilename(self):
-        if len(self.outFilename.text()) > 40:
+        if len(self.outFilename.text()) > 35:
             self.outFilename.setStyleSheet("color: rgb(244, 41, 65);")
         else:
             self.outFilename.setStyleSheet("color: grey;")
@@ -184,7 +184,7 @@ class Still(Asset):
         self.format = None
         self.isTGA = False
         self.isPNG = False
-        self.localFormatsAlpha = ['', 'ANI', 'MOV']
+        self.localFormatsAlpha = ['', 'ANI', 'MOV', 'TGA', 'PNG', 'WEBP']
         self.localFormatsNoAlpha = []
         self.ingestFormats = ['', 'PASS-THROUGH', 'ANI', 'MOV']
 
